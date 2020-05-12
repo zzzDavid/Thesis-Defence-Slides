@@ -9,7 +9,7 @@
 
 Build with XeLaTex.
 
-#### Language Packages**
+#### Language Packages
 - CTEX
 - xeCJK
 

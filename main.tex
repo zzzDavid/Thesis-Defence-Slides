@@ -1,26 +1,45 @@
 \documentclass[10pt]{beamer}
 
+%\usepackage{style/beamerthememetropolis}
 \usetheme[progressbar=frametitle]{metropolis}
+
+\usepackage{animate}
+\usepackage{cite}
+
 
 \usepackage{booktabs}
 \usepackage[scale=2]{ccicons}
 \usepackage{bm}
 
 \usepackage{xeCJK}
-\setCJKmainfont{SimSun}
+\setCJKmainfont{PingFang SC}
 
 \usepackage{pgfplots}
 \usepgfplotslibrary{dateplot}
 
+\usepackage{tikz}
+\usetikzlibrary{shapes, shapes.geometric, arrows, calc, shadows, matrix, fit, patterns, backgrounds, circuits.logic.US, automata, math, decorations, decorations.pathmorphing}
+\usepackage{subfig}
+\usepackage[export]{adjustbox}
+\newcommand{\circledat}[2]{%
+\node[shape=circle,draw,fill=red,text=white,inner sep=3pt] (char) at (#2) {#1};}
+\newcommand*\circled[1]{\tikz[baseline=(char.base)]{
+\node[shape=circle,draw,fill=red,text=white,inner sep=0.5pt] (char) {#1};}}
+\usepackage{pgfplotstable}
+\usetikzlibrary{positioning}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{multirow}
+
 \usepackage{xspace}
 \newcommand{\themename}{\textbf{\textsc{metropolis}}\xspace}
 
-\title{\textsc{Dilated Convolution}:}
+\title{\textsc{RapidLayout}:}
 \subtitle{基于进化算法的脉动阵列快速硬核布局方法}
 %\date{\today} 
 \date{2020年5月10日}
-\author{张年崧 16308149}
-\institute{School of Electronics and Information Technology, Sun Yat-sen University}
+\author{指导老师：陈翔\ 副教授\ \ Nachiket G. Kapre 副教授 \\ 答辩：\hspace{0.55cm} 张年崧}
+\institute{中山大学 电子与信息工程学院 通信工程专业}
 \titlegraphic{\hfill\includegraphics[height=1.0cm]{img/logo.pdf}}
 
 \begin{document}
@@ -34,596 +53,739 @@
 
 %-----------------------------------------------------------------------------------------
 
-\section{Introduction}
+\section{背景介绍}
 
-\begin{frame}{Dilated Convolution}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.6\textwidth}
-      Assuming a source is emitting signal in all directions and an array of
-      sensors are picking up the signal, it will arrive at different sensors at
-      different time.
+\begin{frame}{选题背景}
 
-      \begin{center}
-        \textbf{TDOA :} \textit{Time Difference Of Arrival}
-      \end{center}
+  \begin{enumerate}
+    \setlength\itemsep{1.5em}
+    \item 在“后摩尔时代”，研究者逐渐转向领域定制架构设计，FPGA提供了良好的可重构性；
+    \item 伴随着神经网络的兴起，学界和工业界对其加速器设计的研究兴趣不断提高，以GPU为代表的
+    平行架构计算平台得到广泛应用；
+    \item 现代高端异构FPGA能够提供更强的计算性能，足够的片上存储，因此以FPGA为代表的专用加速器
+    在大规模计算平台上的应用开始兴起；
+    \item 随着神经网络加速器计算密度增加，设计规模变大，现有的EDA工具已经不能适应高资源利用率场景下
+    的布局布线要求，因此，面向此类应用的新型布局布线算法成为未来研究的重点。
+  \end{enumerate} 
 
-      Then the location of the source can be estimated by measuring the delay of
-      signal arriving at different sensor.
+\end{frame}  
 
-    \column{0.38\textwidth}
-      \begin{figure}
-        \includegraphics[width=1\textwidth]{img/intro.png}
-        \caption{Sensors and source.}
-      \end{figure}
+
+\begin{frame}{工作概述}
+
+  本毕业设计的目标与主要贡献为：
+
+  \begin{columns}[T, onlytextwidth]
+    \column{0.47\textwidth}
+
+    \vspace{0.5cm}
+
+    \begin{enumerate}
+      \setlength\itemsep{1.5em}
+      \item 解决大规模加速器设计布局难度大、时间成本高的问题；
+      \item 提出时间更短、性能更优的进化布局算法；
+      \item 构建端到端的自动FPGA布局布线框架：RapidLayout；
+      \item 提出布局结果的迁移学习方法。
+    \end{enumerate}
+
+    \column{0.5\textwidth}
+    % \begin{figure}
+    %   \includegraphics[width=1\textwidth,height=1.3\textwidth]{img/rapidlayout-placed}
+    %   \caption{使用RapidLayout完成布局布线的脉动阵列神经网络加速器}
+    % \end{figure}
+
+    \begin{figure}[h]
+      \centering
+      \subfloat[Vivado]{
+        \includegraphics[width=0.5\textwidth, height=0.8\textwidth]{img/vivado-placed.png}
+      }
+      \subfloat[RapidLayout] {
+        \includegraphics[width=0.5\textwidth, height=0.8\textwidth]{img/manual-placed.png}
+      }
+      \caption{
+       480核CNN加速器布局布线
+      }
+      \label{fig:overview}
+    \end{figure}
+
+
   \end{columns}
+
+
 \end{frame}
 
-\begin{frame}{Position Fix by TDOA: Noise}
-  Vector of \textbf{TDOA}:
-    $$\mathbf{d} = \begin{bmatrix} d_2-d_1 & d_3-d_1 & \cdots \end{bmatrix}^{T}$$
-  However, 100\% precise measurement of \textbf{TDOA} is not possible.
-  Noise is always present.
 
-  Naturally, the noise in \textbf{TDOA} is a \textit{multivariate Gaussian distribution}
-  centered at true value, with covariance given by matrix:
-    $$ \mathbf{Q} = \sigma^2
-      \begin{bmatrix}
-        1 & 0.5 & \cdots & 0.5 \\
-        0.5 & 1 & \cdots & 0.5 \\
-        \vdots & \vdots & \ddots & \vdots \\
-        0.5 & 0.5 & \cdots & 1 \end{bmatrix}
-    $$
-    where $\sigma^2$ is the noise power.
+
+
+
+
+
+\section{相关技术概述}
+
+\begin{frame}{FPGA实现过程及布局算法调研}
+
+  \begin{columns}[T, onlytextwidth]
+    \column{0.5\textwidth}
+    FPGA设计实现过程：
+      \begin{figure}
+        \includegraphics[width=0.8\textwidth]{img/cad.png}
+      \end{figure}
+
+    \column{0.5\textwidth}
+      现有布局算法：
+
+      \begin{enumerate}
+        \item 模拟退火 
+        \begin{itemize}
+          \item 应用广泛，性能好
+          \item 伸缩性差，时间长
+        \end{itemize}
+        \item Min-Cut法 
+        \begin{itemize}
+          \item 速度较快
+          \item 易收敛至局部最优
+        \end{itemize}
+        \item 解析布局算法 
+        \begin{itemize}
+          \item State-of-the-Art
+          \item 合法化步骤复杂
+        \end{itemize}
+        \item 进化算法 
+        \begin{itemize}
+          \item 性能次于退火，但可提升
+          \item 设计灵活，适用于并行化
+        \end{itemize}
+      \end{enumerate}
+
+  \end{columns}
+
 \end{frame}
 
-\section{3-Dimensional Proposed Method}
+\begin{frame}{RapidWright与硬核IP简介}
 
-\begin{frame}{3D Proposed Method}
-  \begin{itemize}[<+- | alert@+>]
-    \item By assuming $x, y, z$ and $r_1$ are independent, the non-linear
-          equations can be reduced into linear ones.
+\begin{figure}
+  \includegraphics[width=1.0\textwidth]{img/hardblocks.png}
+  \vspace{-0.3cm}
+\end{figure}
 
-    \item Given different situations, use \emph{Maximum Likelihood} (ML)
-          estimator to solve the linear equations.
+\begin{columns}[T, onlytextwidth]
+  \column{0.4\textwidth}
+    \begin{figure}
+      \includegraphics[width=\textwidth]{img/vivado_dcps.png}
+    \end{figure}
 
-    \item Incorporate the dependent relationship back into the solution (if necessary)
-          to get more accurate solution.
 
+  \column{0.55\textwidth}
+    {\fontsize{7}{10}
+    \emph{UltraScale+系列硬核IP}
+    \begin{itemize}
+      \item {\bf DSP48E2:} 27$\times$18乘，48位累加，\alert{可级联}
+      \item {\bf RAMB18:} 18KB TDP/SDP，位宽可配置，\alert{可级联} 
+      \item {\bf URAM288:} 288KB 超大型，位宽不可配，\alert{可级联}
+    \end{itemize}
+
+    \emph{RapidWright FPGA实现框架}
+    \begin{itemize}
+      \item 可读写Vivado实现任意阶段checkpoint文件
+      \item 支持模块化快速实现方法
+      \item 精确修改逻辑网表与物理网表，快速获得元件信息（如线长，RPM坐标位置）
+    \end{itemize}
+    }
+  
+\end{columns}
+
+\end{frame}
+
+\begin{frame}{卷积计算单元设计}
+
+  \begin{columns}[T, onlytextwidth]
+    \column{0.4\textwidth}
+    \begin{center}
+      \vspace{-0.5cm}
+      {\small Line-Buffer卷积核设计} 
+      \vspace{-0.5cm}
+    \end{center}
+    \begin{figure}
+      \includegraphics[width=\textwidth]{img/line-buffer.png}
+    \end{figure}
+
+    {\fontsize{8}{12}
+    \begin{itemize}
+      \item {\bf Line-Buffer} 设计针对内存受限场景，注重数据重用，规模较小；
+      \item {\bf 脉动阵列} 针对计算受限场景，解决大规模高速运算问题。
+    \end{itemize}
+    }
+    
+
+    \column{0.5\textwidth}
+    \begin{center}
+      \vspace{-0.5cm}
+      {\small 脉动阵列 (Systolic Arrays) }
+      \vspace{-0.5cm}
+    \end{center}
+    \begin{figure}
+      \includegraphics[width=\textwidth]{img/cascade.png}
+      \vspace{-0.5cm}
+    \end{figure}
+
+    \begin{figure}
+      \includegraphics[width=\textwidth]{img/array}
+    \end{figure}
+    
+  \end{columns}
+
+\end{frame}
+
+
+\begin{frame}{NSGA-II 与 CMA-ES}
+
+  \begin{columns}[T, onlytextwidth]
+    \column{0.4\textwidth}
+    \vspace{-0.5cm}
+      \begin{center}
+        协方差矩阵适应进化策略(CMA-ES)
+        \animategraphics[loop, controls, width=0.8\textwidth]{10}{img/cmaes/frame}{0}{19}
+      \end{center}
+      {\fontsize{8}{10}
+      \begin{itemize}
+        \item 可行解建模为N维高斯随机过程的采样
+        \item 前25\%个体用于更新采样协方差矩阵和均值向量
+        \item State-of-the-art非求导连续域优化
+      \end{itemize}
+      }
+
+    \column{0.5\textwidth}
+    \vspace{-0.5cm}
+    \begin{center}
+      非支配排序遗传算法(NSGA-II)
+    \end{center}
+    \begin{figure}
+      \includegraphics[width=\textwidth]{img/NSGA-II.pdf}
+      \caption{NSGA-II优化过程示意图}
+    \end{figure}
+
+    {\fontsize{8}{10}
+    \begin{itemize}
+      \item 经典多目标优化算法
+      \item 使用非支配排序首先将个体分成帕累托前端 (Pareto-Front)
+      \item 同一前端内使用Crowding Distance排序保留多样性
+    \end{itemize}
+    }
+
+  \end{columns}
+  
+
+\end{frame}
+
+\section{基于进化算法的脉动阵列布局}
+
+\begin{frame}{问题建模与基因型设计}
+  \vspace{-0.5cm}
+  \begin{figure}
+    \centering
+    \resizebox{0.6\linewidth}{!}{
+    \begin{tikzpicture}[decoration={coil},
+  dna/.style={decorate, thick, decoration={aspect=0, segment length=0.5cm}}]
+   
+  %DNA
+    \draw[dna, decoration={amplitude=.15cm}] (.1,0) -- (11,0);
+    \draw[dna, decoration={amplitude=-.15cm}] (0,0) -- (11,0);
+    \node at (5,0.8) {\Large Hard Block Placement Genotype};
+  
+    \node [rectangle,rounded corners,inner sep=0pt,minimum width=3cm, minimum
+    height=0.25cm,text height=0.95cm, draw=red, ultra thick, fill=red!20,
+    anchor=west, opacity=0.4, text
+    opacity=1,label=below:{\textcolor{red}{Distribution}}] at (0,0) {};
+  
+    \node [rectangle,rounded corners,inner sep=0pt,minimum width=3.8cm, minimum
+    height=0.25cm,text height=0.95cm, draw=blue, ultra thick, fill=blue!20,
+    anchor=west, opacity=0.4, text
+    opacity=1,label=below:{\textcolor{blue}{Location}}] at (3.2,0) {};
+   
+  
+    \node [rectangle,rounded corners,inner sep=0pt,minimum width=3.8cm, minimum
+    height=0.25cm,text height=0.95cm, draw=olive, ultra thick, fill=olive!20,
+    anchor=west, opacity=0.4, text
+    opacity=1,label=below:{\textcolor{olive}{Mapping}}] at (7.2,0) {};
+   
+    \end{tikzpicture}
+    
+    }
+
+    \vspace{-0.2cm}
+    
+    \includegraphics[width=\textwidth]{img/geno.png}
+    
+    \label{fig:genotype}
+  \end{figure}
+
+  \vspace{-0.3cm}
+
+  {\fontsize{8}{10}
+    \begin{columns}[T, onlytextwidth]
+
+      \column{0.5\textwidth}
+
+      {\small Minimize:} 
+      \vspace{-0.3cm}
+      \begin{equation} \label{eq:obj1}
+        \vspace{-0.5cm}
+        \sum_{i,j} ((\Delta{x_{i,j}} + \Delta{y_{i,j}}) \cdot w_{i,j})^2 
+      \end{equation}
+      
+      \begin{equation} \label{eq:obj2}
+        \max_{k} (BBoxSize(C_k))
+        \vspace{-0.2cm}
+      \end{equation}
+
+      {\small subject to:}
+      \vspace{-0.3cm}
+      % rectangle region bound
+      \begin{equation} \label{eq:region}
+        \vspace{-0.5cm}
+        0 \leq x_i < XMAX ,\ 
+        0 \leq y_i < YMAX
+      \end{equation}
+      
+      
+     
+      
+      
+      
+      \column{0.46\textwidth}
+
+      % no overlap
+      \begin{equation} \label{eq:overlap}
+        \vspace{-0.5cm}
+          {x_i,y_i} \neq {x_j,y_j}
+        \vspace{-0.2cm}
+      \end{equation}
+
+      % cascade connection placement requirement
+      \begin{equation} \label{eq:cascade}
+        \vspace{-0.5cm}
+        \begin{aligned}[b]
+        & \textrm{如果\ } i \textrm{ 级联在\ } j \textrm{ 之后: }
+        x_i = x_j \\
+        & y_i =
+        \begin{cases}
+           y_j + 1  & i, j \in \{  DSP, URAM  \} \\
+           y_j + 2  & i, j \in \{  RAMB \}
+        \end{cases}
+      \end{aligned}
+      \end{equation}
+      
+    \end{columns}
+  
+  }
+  
+  
+\end{frame} 
+
+
+\begin{frame}{RapidLayout工作流}
+
+  \begin{columns}[T, onlytextwidth]
+    \column{0.4\textwidth}
+
+    \vspace{0.2cm}
+    {\fontsize{8}{12}\selectfont
+
+    \circled{A} {\bf 逻辑网表复制：}\\
+    输入单个卷积单元逻辑网表，自动确定布局的\alert{最小可复制矩形区域}
+    和最大可容纳单元数，复制逻辑网表。\\
+
+    \circled{B} {\bf 基于进化算法硬核布局：}\\
+    使用NSGA-II或CMA-ES求解。\\
+
+    \circled{C} {\bf 物理网表布局和Site布线：}\\
+    更新物理网表，连接Site内信号。\\
+
+    \circled{D} {\bf 流水线：}\\
+    自动确定流水线级数，优化时钟。\\
+
+    \circled{E} {\bf 超逻辑域布局与布线：}\\
+    在SLR内完成细节布局和布线。\\
+
+    \circled{F} {\bf 超逻辑域复制：}\\
+    重用布线结果，将实现后的设计复制到整个FPGA。\\
+
+    }
+
+    \column{0.5\textwidth}
+
+    % figure: design flow
+    
+    \tikzstyle{block} = [thick, rectangle, draw, fill=white, text width=12em, text centered, rounded corners, minimum height=2em]
+    \tikzstyle{invisiblock} = [rectangle, fill=white, text width=12em, text centered, rounded corners, minimum height=2em]
+    \tikzstyle{decisionblock} = [rectangle, draw, fill=blue!20, text width=12em, text centered, rounded corners, minimum height=2em]
+    \tikzstyle{line} = [draw, -latex']
+    
+    \pgfdeclarelayer{bg}    % declare background layer
+    \pgfsetlayers{bg,main}  % set the order of the layers (main is the standard layer)
+  
+    \begin{figure}
+    \begin{center}
+    \scalebox{0.5}{
+    \begin{tikzpicture}[node distance=1.5cm and 3.5cm, scale=1, transform shape]
+      % Place nodes
+      \node [invisiblock] (input) {Convolution Block DCP};
+      \node [block, below of=input] (replicate) {Netlist Replication {\bf [\textless 1s]}};
+      \circledat{A}{replicate.north west};
+      \node [block, below of=replicate, minimum height=7em, node distance=2.5cm] (evolve) {Evolutionary\\ Hard Block\\ Placement\\ {\bf [30\,s--5\,min]}};
+      \circledat{B}{evolve.north west};
+      \node [block, below of=evolve, node distance=2.5cm] (siteroute) {Placement and\\ Site Routing {\bf [$\approx$3\,min]}};
+      \circledat{C}{siteroute.north west};
+      \node [block, below of=siteroute] (pipeline) {Post-Placement\\Pipelining {\bf [$\approx$10\,s]}};
+      \circledat{D}{pipeline.north west};
+      \node [block, below=0.75cm of pipeline] (vivado) {SLR Placement\\ and Routing {\bf [$\approx$54\,min]}};
+      \circledat{E}{vivado.north west};
+      \node [block, below=0.75cm of vivado] (slr) {SLR Replication {\bf [$\approx$2\,min]}};
+      \circledat{F}{slr.north west};
+      % Draw sub-nodes
+        \node [block, fill=teal!50, right=1cm of evolve] (two) {Compute objective};
+      \node [block, fill=teal!50, above of=two] (one) {Generate candidates};
+      \node [block, fill=teal!50, below of=two] (three) {Update};
+      % Inner loop highlight
+      \begin{pgfonlayer}{bg}
+      
+      \path[rounded corners, draw=blue, thick, fill=blue!10,opacity=0.9] 
+      ([xshift=-0.75em,yshift=0.75em]vivado.north west) to ([xshift=10em,yshift=0.75em]vivado.north east) 
+      to ([xshift=10em,yshift=-0.75em]vivado.south east) to ([xshift=-0.75em,yshift=-0.75em]vivado.south west) -- cycle;
+      
+      
+      \path[rounded corners, draw=red, thick, fill=red!10,opacity=0.9] 
+      ([xshift=-0.75em,yshift=0.75em]replicate.north west) to 
+    ([xshift=20em,yshift=0.75em]replicate.north east) to 
+    ([xshift=20em,yshift=-0.75em]slr.south east) to
+    ([xshift=-0.75em,yshift=-0.75em]slr.south west) to
+    ([xshift=-0.75em,yshift=0.75em]slr.north west) to 
+    ([xshift=12em,yshift=0.75em]slr.north east) to
+      ([xshift=12em,yshift=-0.75em]pipeline.south east) to 
+    ([xshift=-0.75em,yshift=-0.75em]pipeline.south west) -- cycle;
+      
+      \path[rounded corners, draw=teal, thick, fill=teal!10,opacity=0.9] 
+      ([xshift=-0.5em,yshift=0.5em]evolve.north west) to ([xshift=0.5em,yshift=0.5em]evolve.north east) 
+      to ([xshift=-0.5em,yshift=1.5em]one.north west) to ([xshift=3.5em,yshift=1.5em]one.north east) 
+      to ([xshift=3.5em,yshift=-1.5em]three.south east) to ([xshift=-0.5em,yshift=-1.5em]three.south west) 
+      to ([xshift=0.5em,yshift=-0.5em]evolve.south east) to ([xshift=-0.5em,yshift=-0.5em]evolve.south west) -- cycle;
+      \end{pgfonlayer}
+      
+      %\node [draw=none,below right=0.1cm of three] (opt4j) {\bf Opt4J};
+      \node [draw=none,right=3.5cm of slr] (RapidWright) {\Large \bf RapidWright};
+      \node [draw=none,right=1.75cm of vivado] (RapidWright) {\Large \bf Vivado};
+      
+      \node [invisiblock,below of=slr] (output) {Bitstream};
+      % Draw edges
+      \path [line, thick] (input) -- (replicate);
+      \path [line, thick] (replicate) -- (evolve);
+      \path [line, thick] (evolve) -- (siteroute);
+      \path [line, thick] (siteroute) -- (pipeline);
+      \path [line, thick] (pipeline) -- (vivado);
+      \path [line, thick] (vivado) -- (slr);
+      \path [line, thick] (slr) -- (output);
+      % Draw sub-edges
+      \path [line, thick] (one) -- (two);
+      \path [line, thick] (two) -- (three);
+      % Loops
+      \path [line, thick] (three.east) -- ([xshift=0.8cm]three.east) -- ([xshift=0.8cm]one.east) node [midway, above, sloped, rotate=180] (textnode0) {evolve} -- (one.east);
+    
+    \end{tikzpicture}
+    }
+    \end{center}
+    % 	\caption{RapidLayout Design Flow with runtime details for the Xilinx VU11P
+    %  FPGA along with tool usage information. Bulk of the intelligent exploration is done in RapidWright, and Vivado is only invoked at the end for final placement and routing.}
+    
+    \caption{RapidLayout工作流}
+    
+    \label{fig:flow}
+    \vspace{-0.1in}
+    \end{figure}
+
+  \end{columns}
+
+\end{frame}
+
+
+\begin{frame}{以Xilinx UltraScale+ VU11P为例的实现流程}
+
+  \begin{columns}[T, onlytextwidth]
+
+    \column{0.5\textwidth}
+    \vspace{-0.5cm}
+    \begin{figure}
+      \includegraphics[width=\textwidth]{img/block1}
+      \caption{单卷积单元布局结果}
+    \end{figure}
+    \vspace{-1cm}
+    \begin{figure}
+      \includegraphics[width=\textwidth]{img/block80}
+      \caption{Repeat Rect. 布局结果-80核}
+      \label{fig:block80}
+    \end{figure}
+
+    \column{0.5\textwidth}
+    \begin{figure}
+      \centering	
+      \scalebox{0.8}{%
+       \begin{tikzpicture}
+       \centering
+         \pgftext{%
+           \includegraphics[width=0.78\textwidth]{img/rapidlayout-placed.png}
+         }%
+         \node [rectangle,rounded corners,minimum width=4.1cm,minimum
+         height=0.7cm,draw=green,ultra thick,anchor=south west] (rect1) at
+         (0.1-2.2,0.75-2.25) {};
+         \node [rectangle,rounded corners,minimum width=4.2cm,minimum
+         height=1.5cm,draw=red,ultra thick,anchor=south west,
+         text=white,text opacity=0.5] (slr0) at
+         (0.05-2.2,0-2.25) {\Huge SLR0};
+         \node [rectangle,rounded corners,minimum width=4.1cm,minimum
+         height=0.7cm,fill=green,opacity=0.5,draw
+         opacity=1,draw=green,ultra thick,anchor=south
+         west,text=black,text opacity=1,align=center] (rect0) at
+         (0.1-2.2,-2.25+0.05) {Repeat Rect. (Fig~\ref{fig:block80})};
+         \node [rectangle,rounded corners,minimum width=4.2cm,minimum
+         height=1.5cm,draw=red,ultra thick,anchor=south west,
+         text=white,text opacity=0.5] (slr1) at
+         (0.05-2.2,1.5-2.25) {\Huge SLR1};
+         \node [rectangle,rounded corners,minimum width=4.2cm,minimum
+         height=1.5cm,draw=red,ultra thick,anchor=south west,
+         text=white,text opacity=0.5] (slr2) at
+         (0.05-2.2,3-2.25) {\Huge SLR2};
+         \draw [ultra thick,->,green] (rect0) to [out=0,in=0,looseness=2] node (b)
+       [midway,above=0cm,align=center,rotate=-90] {\textcolor{green}{{\small Copy Placements}
+       }\textcolor{green}{{\small \ }}} (rect1);
+       \draw [ultra thick,->,red] (slr0) to [out=180,in=180] node (a)
+       [midway,above,align=center,rotate=90] {\textcolor{red}{{\small Copy Placement +
+       Routing}}\\\textcolor{red}{{\small in RapidWright}}} (slr2);
+         \circledat{F}{[yshift=2cm,xshift=0.35cm]a};
+         \circledat{C}{[yshift=1cm,xshift=0.75cm]b};
+         \circledat{D}{[yshift=0.0cm,xshift=0.75cm]b};
+         \circledat{E}{[yshift=-1cm,xshift=0.75cm]b};
+         \draw [ultra thick,->,red] (slr0) to [out=180,in=180] (slr1);
+       \end{tikzpicture}
+      }
+      \caption{布局重用与SLR布线重用}
+      
+    \end{figure}
+
+
+  \end{columns}
+  {\fontsize{8}{10}
+  \begin{itemize}
+    \item 布局和布线结果重用，RapidLayout端到端实现仅需1小时，比Vivado快5--6倍；
+    \item 自动化方法免去了手工布局和试错；
+    \item 优质布局结果与自动流水线确保时钟频率达到URAM上限650 MHz。
   \end{itemize}
+  }
+    
 \end{frame}
 
-\begin{frame}{3D Proposed Method: Work-flow}
+
+
+%------------------------Spherical Interpolation Method-------------------------------
+\section{实验结果与分析}
+
+\begin{frame}{实验设计与算法性能对比}
+  
+  \begin{columns}[T, onlytextwidth]
+    \column{0.4\textwidth}
+    {\fontsize{7}{12}\selectfont
+    
+    {\bf 对比实验设计}\\
+
+      - 参数优化的模拟退火；\\
+      - 标准布局工具VPR；\\
+      - 最先进解析布局UTPlaceF；\\
+      - 单目标遗传算法;\\
+      - 手工布局设计。\\
+    
+    {\bf 实验结果对比} \\
+      - CMA-ES和NSGA-II相对SA快\alert{2.7--30.8}倍;\\
+      - 线长相对UTPlaceF, VPR优化\alert{1.8--2.4}倍；\\
+      - 边界框尺寸相对二者优化\alert{2.0--4.1}倍。
+    }
+
+    \column{0.6\textwidth}
+    \vspace{-0.6cm}
+    \begin{figure}
+      \includegraphics[width=1.2\textwidth]{img/objective-runtime}
+      %\caption{退火算法、NSGA-II、NSGA-II Reduced、CMA-ES、GA、UTPlaceF、VPR 的布局结果对比：目标函数值与时钟频率} 
+      \label{fig:objective}
+    \end{figure}
+
+  \end{columns}
+
+  \vspace{-1.0cm}
+
+  \begin{table}
+        % \caption{平均运行时间，平均线长，平均最大边界框尺寸，达到650MHz最少所需流水线寄存器数目，以及平均时钟频率对比。
+        % 左侧为本文提出的NSGA-II, NSGA-II Reduced, CMA-ES，右侧为对比算法。与各个对比算法相比每个指标的提升倍数在
+        % 括号内标出，其中\textcolor{red}{红色}$\rightarrow$NSGA-II，\textcolor{olive}{绿色}$\rightarrow$CMA-ES}
+      \label{table:comparison}
+      \centering
+      \begin{adjustbox}{width=1.1\textwidth,center}
+      \begin{tabular}{c|c c| c c c c c}
+      \toprule
+      Method             & NSGA-II    	          & CMA-ES       & SA 					                                                                       & GA 			                                                                  & VPR     	                                                                & UTPlaceF 		                                                                   &  Manual \\
+      \midrule
+      Runtime (secs)     & 586 (323)		          & 51  		     &1577     (\textcolor{red}{2.7$\times$}, \textcolor{olive}{30.8$\times$})		        & 850 (\textcolor{red}{1.5$\times$}, \textcolor{olive}{16.7$\times$})		      & 76 (\textcolor{red}{0.13$\times$}, \textcolor{olive}{1.5$\times$})		    &  473 (\textcolor{red}{0.8$\times$}, \textcolor{olive}{9.3$\times$})            & 1--2 wks\\
+      Wirelength  	     & 3.5K  (3.5K)   		    & 4.4K     		 &3.1K 	   (\textcolor{red}{0.9$\times$}, \textcolor{olive}{0.7$\times$})		          & 9.2K  (\textcolor{red}{2.6$\times$}, \textcolor{olive}{2.1$\times$})    		& 8.5K (\textcolor{red}{2.4$\times$}, \textcolor{olive}{1.9$\times$})   		&  7.8K  (\textcolor{red}{2.2$\times$}, \textcolor{olive}{1.8$\times$})          & 8.1K (\textcolor{red}{2.3$\times$}, \textcolor{olive}{1.8$\times$})  \\
+      BBox      	       & 1183  (1543)   		    & 1606     		 &1387	   (\textcolor{red}{1.2$\times$}, \textcolor{olive}{0.9$\times$})		          & 1908  (\textcolor{red}{1.6$\times$}, \textcolor{olive}{1.2$\times$})   		  & 4941	(\textcolor{red}{4.1$\times$}, \textcolor{olive}{3.1$\times$})  		&   3218	(\textcolor{red}{2.7$\times$}, \textcolor{olive}{2.0$\times$})         & 1785 (\textcolor{red}{1.5$\times$}, \textcolor{olive}{1.1$\times$})  \\
+      Pipeline Reg.		   & 256K  (273K) 		      & 273K	   		 &273K	   (\textcolor{red}{1.1$\times$}, \textcolor{olive}{1$\times$}) 	 	          & 323K	(\textcolor{red}{1.3$\times$}, \textcolor{olive}{1.2$\times$})   		  & -		                                                                      &   -                                                                            & 306K (\textcolor{red}{1.2$\times$}, \textcolor{olive}{1.1$\times$})   \\
+      Frequency	(MHz)	 	 & 733  (688)   & 708 	 &711  (\textcolor{red}{0.97$\times$}, \textcolor{olive}{1.0$\times$})		        & 585 	(\textcolor{red}{0.80$\times$}, \textcolor{olive}{0.83$\times$})	& - 	      	                                                              & - 	                                                                           & 693 (\textcolor{red}{0.95$\times$}, \textcolor{olive}{0.98$\times$}) \\
+      \bottomrule
+      \end{tabular}
+    \end{adjustbox}
+  \end{table}
+
+  {\fontsize{7}{10}\selectfont
+   括号内为指标提升倍数，其中\textcolor{red}{红色}$\rightarrow$NSGA-II，\textcolor{olive}{绿色}$\rightarrow$CMA-ES
+  }
+
+\end{frame}
+
+\begin{frame}{算法收敛对比}
 
   \begin{figure}
     \centering
-    \includegraphics[width=0.9\textwidth]{img/workflow.png}
-    \caption{Flowchart of the proposed method in 3D.}
+    \includegraphics[width=\textwidth]{img/convergence.pdf}
+    \caption{退火、NSGA-II、CMA-ES、GA 收敛进程对比}
+  \end{figure}
+
+  \vspace{-0.5cm}
+
+  \begin{columns}[T, onlytextwidth]
+  \column{0.4\textwidth}
+    \begin{figure}
+      \includegraphics[width=\textwidth]{img/frequency_depth}
+      \caption{时钟频率 vs 流水级数}
+    \end{figure}
+
+  \column{0.55\textwidth}
+
+  \vspace{0.3cm}
+  
+  {\fontsize{8}{12}\selectfont 
+  {\bf 实验结论:}\\
+
+  1. 仅优化边界框不易于收敛；\\
+  2. 单目标GA优化过程不稳定，证明多目标必要性；\\
+  3. 提出的进化算法在1--2级流水可达到750MHz的超高频率；\\
+  4. NSGA-II节省约17K个(6\%)流水寄存器。
+  }
+  \end{columns}
+
+\end{frame}
+
+\begin{frame}{迁移学习性能}
+  %\vspace{-2cm}
+
+  \begin{table}[h!]
+    \caption{迁移学习性能: VU3P, VU11P 作为初始设备}
+    \label{table:port}
+    \centering
+    \begin{adjustbox}{width=\columnwidth,center}
+    \begin{tabular}{c|c c c c c}
+      \toprule
+  \multirow{2}{*}{Device}     & Design Size 		& Impl.Runtime 		& Frequency 	 & \multicolumn{2}{c}{Placement Runtime}    			\\ \cline{5-6}
+                                 & (conv units)		& (mins.)				& (MHz)			 & 	Scratch (s)			& 	Transfer (s)				\\
+      \midrule
+      \emph{xcvu3p}  			& 123				&	46.4			& 718.9			 & 428.3				& - 							\\
+      \emph{xcvu5p}  			& 246				&   56.9				& 677.9	 		 & 396.0				& 55.7 	(\textcolor{red}{7.1$\times$})							\\
+      \emph{xcvu7p}  			& 246			    &   55.1				& 670.2	 		 & 345.4				& 44.2 	(\textcolor{red}{7.8$\times$})							\\
+      \emph{xcvu9p}  			& 369	   			&   58.4				& 684.9	 		 & 316.5				& 45.5 	(\textcolor{red}{7$\times$})							\\ 
+      \midrule
+      \emph{xcvu11p} 			& 480	      	    &	65.2          	& 655.3	 		 & 695.9				& -								\\	
+      \emph{xcvu13p} 			& 640        	    & 	69.4   			& 653.2	 		 & 704.9				& 58.8	(\textcolor{red}{12$\times$})			\\
+      \bottomrule
+    \end{tabular}
+    \vspace{-0.1in}
+    \end{adjustbox}
+  \end{table}
+
+  {\fontsize{8}{12}\selectfont
+  \begin{itemize}
+    \item 同设计在不同FPGA的硬核布局可进行迁移学习，仅需满足\alert{硬核列数相同}；
+    \item 迁移学习可加快优化进程\alert{7--12}倍。
+    \item 迁移学习获得结果的时钟频率相对无迁移学习变化 \alert{-2\% -- +7\%}
+  \end{itemize}
+  }
+  
+\end{frame}
+
+
+
+\section{总结与展望}
+
+\begin{frame}{总结与展望}
+
+  {\fontsize{8}{10}\selectfont
+  {\bf 全文的主要工作及贡献点如下：}
+  \begin{enumerate}
+    \setlength\itemsep{1.5em}
+    \item 将硬核布局建模为约束多目标优化问题，应用NSGA-II与CMA-ES两种进化算法求解，在运行时间
+    和结果质量多个方面超越State-of-the-art 解析布局方法；
+    \item 针对硬核级联造成的布局限制提出创新的基因型设计；
+    \item 实现了自动化、端到端的FPGA布局布线框架，解决了大规模加速器设计的布局困难、周期长的问题；
+    \item 提出了布局的迁移学习方法，显著加速了硬核布局的跨设备优化过程。
+  \end{enumerate}
+
+  {\bf 研究展望：}
+  \begin{enumerate}
+    \setlength\itemsep{1.5em}
+    \item 通用性：RapidLayout可支持任意使用硬核IP的设计布局，未来可做进一步拓展；
+    \item GPU加速：进化算法基于种群的优化方法适用于平行计算，未来可用GPU加速。
+  \end{enumerate}
+  }
+
+\end{frame}
+
+
+
+\section{相关科研成果}
+
+\begin{frame}{相关科研成果与参考文献}
+\begin{enumerate}
+	\item 发表论文
+	\begin{enumerate}
+		\item Niansong Zhang, Xiang Chen, Nachiket Kapre.
+		 \textit{RapidLayout: Fast Hard Block Placement of FPGA-optimized Systolic Arrays using Evolutionary Algorithms.}
+		 Accepted by 28th IEEE Annual International Symposium on Field-Programmable Custom Computing Machines (FCCM). 
+		 May 3 - May 6, 2020. (CCF-C)
+		%\item XXX
+		%\item XXX
+	\end{enumerate}
+	\item 发明专利
+	\begin{enumerate}
+		\item 张年崧，杨嵩毅，符顺，陈翔，基于计算机视觉成像的工业型材几何尺寸自动检测方法，No. 201811539019.8，2019年4月
+		%\item XXX
+		%\item XXX
+	\end{enumerate}
+	% \item 获奖
+	% \begin{enumerate}
+	% 	\item XXX
+	% 	\item XXX
+	% 	\item XXX
+	% \end{enumerate}
+	
+\end{enumerate}
+
+\end{frame}
+
+% \begin{frame}[allowframebreaks]{参考文献}
+%   \bibliography{ref}
+%   \bibliographystyle{abbrv}
+% \end{frame}
+
+\section{附录}
+
+\begin{frame}{异构FPGA硬核列分布资源}
+  \begin{figure}
+    \includegraphics[width=\textwidth]{img/architecture.png}
   \end{figure}
 \end{frame}
-
-\begin{frame}{3D Proposed Method: Arbitrary Array}
-  "Arbitrary" refers to that sensors are arranged in a non-linear manner,
-  thus avoiding singularity during computation.
-  \begin{itemize}
-    \item With \alert{4} sensors ($M = 4$), system is not overdetermined.
-            $$\mathbf{z}_p = - \begin{bmatrix}x_{2,1}&y_{2,1}&z_{2,1} \\ x_{3,1}&y_{3,1}&z_{3,1} \\     x_{4,1}&y_{4,1}&z_{4,1}\end{bmatrix}^{-1} \times
-              \begin{Bmatrix} \begin{bmatrix}r_{2,1}\\r_{3,1}\\r_{4,1}\end{bmatrix}r_1 + \frac{1}{2}
-                              \begin{bmatrix}r_{2,1}^2-K_2+K_1 \\ r_{3,1}^2-K_3+K_1 \\ r_{4,1}^2-K_4+K_1 \end{bmatrix}\end{Bmatrix}$$
-            $$r_1^2 = K_1-
-              2\begin{bmatrix}x_1&y_1&z_1\end{bmatrix} \mathbf{z}_p+
-              \mathbf{z}_p^T \mathbf{z}_p$$
-          where $K_i = x_i^2 + y_i^2 + z_i^2, \mathbf{z}_p = \begin{bmatrix}x&y&z\end{bmatrix}^T$.
-    \item Therefore, the solution can be found simply by
-    \begin{enumerate}
-      \item solving a quadratic equation of $r_1$;
-      \item insert $r_1$ back and solve the linear equation groups of $x$ and $y$.
-    \end{enumerate}
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Proposed Method: Arbitrary Array (cont'd)}
-  \begin{itemize}
-    \item With more than 4 sensors, the system is overdetermined.
-    \item Here we denote:
-            $$\mathbf{h}= \frac{1}{2}
-              \begin{bmatrix}r_{2,1}^2-K_2+K_1 \\
-                             r_{3,1}^2-K_3+K_1 \\
-                             \vdots \\
-                             r_{M,1}^2-K_M+K_1\end{bmatrix}$$
-            $$\mathbf{G}_a=-
-              \begin{bmatrix} x_{2,1} & y_{2,1} & z_{2,1} & r_{2,1} \\
-                              x_{3,1} & y_{3,1} & z_{3,1} & r_{3,1} \\
-                              \vdots  & \vdots  & \vdots  \\
-                              x_{M,1} & y_{M,1} & z_{M,1} & r_{M,1} \end{bmatrix}$$
-            $$\mathbf{B}= \textbf{diag} \{r_2^0,r_3^0,\cdots,r_M^0\}$$
-     \item Additional dimension reflects on the change in $\mathbf{G}_a$.
-  \end{itemize}
-\end{frame}
-
-
-
-\begin{frame}{Proposed Method: Dependency of Arbitrary Array}
-  \begin{itemize}
-    \item The next step is to consider the dependency between $x$, $y$ and $r_1$.
-    \item Again using ML, we have
-          $$\mathbf{z}_a^{'}=(\mathbf{G}_a^{'T}\Psi^{'-1}\mathbf{G}_a^{'})^{-1}
-                              \mathbf{G}_a^{'T}\Psi^{'-1}\mathbf{h}^{'}$$
-          where
-          $$\mathbf{h}^{'}=\begin{bmatrix}(x-x_1)^2\\(y-y_1)^2\\(z-z_1)^2\\r_1^2\end{bmatrix},\quad
-            \mathbf{G}_a^{'}=\begin{bmatrix}1&0&0\\0&1&0\\0&0&1\\1&1&1\end{bmatrix}$$
-          and
-          $$\Psi^{'}=4\mathbf{B}^{'}(\mathbf{G}_a^{0T}\Psi^{-1}\mathbf{G}_a^0)^{-1}\mathbf{B}^{'},\quad
-            \mathbf{B}^{'} = \textbf{diag} \{x-x_1, y-y_1, z-z_1, r_1^0\}$$
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Proposed Method: Solution of Arbitrary Array}
-  \begin{itemize}
-    \item Similar simplification can be made when the source is far away,
-          by substituting $\Psi$ with $\mathbf{Q}$.
-    \item After acquiring $\mathbf{z}_a^{'}$, we have
-          $$\mathbf{z}_a^{'}=
-            \begin{bmatrix}(x^0-x_1)^2\\(y^0-y_1)^2\\(z^0-z_1)^2\end{bmatrix}$$
-    \item Then $x^0$, $y^0$, $z^0$ can be calculated by taking square roots of the positive values.
-    \item Interested solution will be chosen among different sign combinations yield by square root.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Proposed Method: Coplanar Array}
-  If the sensors are coplanar, i.e. sit on the same plane, then the positions
-  can be described by $$z=ax+by+c$$
-
-  Here the procedure used for \emph{Arbitrary Array} would fail due to matrix singularity.
-
-  However, a similar solution can be developed with slight modifications.
-  
-  Coplanar array corresponds to \alert{linear} array in 2D scenario.
-\end{frame}
-
-\begin{frame}{Proposed Method: Coplanar Array (cont'd)}
-  \begin{itemize}
-    \item Taking the relationship $z=ax+by+c$, rewrite $\mathbf{z}_a$ and $\mathbf{G}_a$
-          as
-          $$\mathbf{z}_l=\begin{bmatrix}x+az\\y+bz\\r_1\end{bmatrix},\quad
-            \mathbf{G}_l=-\begin{bmatrix}
-                          x_{2,1} & y_{2,1} & r_{2,1}\\
-                          x_{3,1} & y_{3,1} & r_{3,1}\\
-                          \vdots  & \vdots \\
-                          x_{M,1} & y_{M,1} & r_{M,1}\end{bmatrix}$$
-    \item We can have something very similar to that in arbitrary array
-          $$\mathbf{z}_l=(\mathbf{G}_l^T\Psi^{-1}\mathbf{G}_l)^{-1}\mathbf{G}_l^T\Psi^{-1}\mathbf{h}$$
-          where $\Psi$ and $\mathbf{h}$ are the same as in arbitrary Array.
-    \item Similar approach of taking $\mathbf{Q}$ for $\Psi$ and use of iteration can be applied here.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Proposed Method: Solution of Coplanar Array}
-  We now have $\mathbf{z}_l=\begin{bmatrix}x+az\\y+bz\\r_1\end{bmatrix}$,
-  denoted as $\mathbf{z}_l=\begin{bmatrix}w\\v\\r_1\end{bmatrix}$.
-  \begin{itemize}
-    \item $x$, $y$, $z$ can be solved through quadratic equation
-          $$z=\frac{-E\pm\sqrt{E^2-4AC}}{2A},\quad x=w-az,\quad y=v-bz$$
-          where$$A=1+a^2+b^2$$
-          $$E=-2aw-2bv-2z_1+2x_1+2by_1$$
-          $$C=w^2+v^2-2x_1w-2y_1v+K_1-r_1^2$$
-    \item When $a=0$ and $b=0$, the solution becomes
-          $$z=\pm\sqrt{r_1^2-(w-x_1)^2-(v-y_1)^2}+z_1,\quad x=w,\quad y=v$$
-  \end{itemize}
-\end{frame}
-
-%-----------------------Taylor-series Method--------------------------------------
-\section{Taylor-series Method}
-
-\begin{frame}{Taylor-Series Method}
-	We are given:
-  $$ r_{i,1}=cd_{i,1}=r_{i}-r_{1} $$
-  Linearize above equation by Taylor-series expansion and then solve iteratively:
-	\begin{itemize}
-    \item Compute position deviation
-    \item Add position deviation to initial guess
-    \item Solve again until deviation is considerably small
-  \end{itemize}
-  \alert{Convergence is not guaranteed}
-\end{frame}
-
-
-\begin{frame}{Taylor-series Method}
-	The position deviation is computed by:
-   $$\begin{bmatrix} \Delta x \\ \Delta y \end{bmatrix} = (\mathbf{G_{t}^T Q^{-1} G_{t})^{-1} G_{t}^T Q^{-1} h_{t}}$$
-  where $h_{t}$ and $G_{t}$ are given as follows
- \begin{align}
-    \mathbf{h_{t}} &= \begin{bmatrix} r_{2,1} - (r_{2}-r_{1}) \\  r_{3,1} - (r_{3}-r_{1})\\  \quad\\  r_{M,1} - (r_{M}-r_{1}) \end{bmatrix}  \\
-    \mathbf{G_{t}} &= \begin{bmatrix} (x_{1}-x)/r_{1} - (x_{2}-x)/r_{2} & (y_{1}-y)/r_{1} - (y_{2}-y)/r_{2} \\ (x_{1}-x)/r_{1} - (x_{2}-x)/r_{3} & (y_{1}-y)/r_{1} - (y_{3}-y)/r_{3}\\  \quad\\ (x_{1}-x)/r_{1} - (x_{M}-x)/r_{M} & (y_{1}-y)/r_{1} - (y_{M}-y)/r_{M} \end{bmatrix}
-  \end{align}
-
-\end{frame}
-
-%------------------------Spherical Interpolation Method-------------------------------
-\section{Spherical-Interpolation Method}
-
-% page 1
-\begin{frame}{The Equation-Error Formulation}
-  We first map the spatial origin to an arbitrary sensor j, this gives:
-  $$ \mathbf{\underline{x}_{j}}\triangleq \underline{0}\Longrightarrow \begin{cases} R_{j} &= \ 0 \\ D_{j} &= \ R_{s} \end{cases}$$
-  From the Pythagorean theorem, we have:
-  $$(R_{s}+d_{ij})^2 = R_{i}^2 - 2\mathbf{\underline{x}_{i}^T \underline{x}_{s}} + R_{s}^2 $$
-  which is also:
-  $$ 0 = R_{i}^2 - d_{ij}^2 -2R_{s}d_{ij} - 2\mathbf{\underline{x}_{i}^T \underline{x}_{s}} $$
-  \begin{center}
-  \includegraphics[scale=0.7]{img/Pythagorean.JPG}
-  \end{center}
-\end{frame}
-% page 2
-\begin{frame}{The Equation-Error Fomulation}
-  If we take the first sensor as origin, i.e. $j=1$ \\
-  As the delays are typically not measured precisely, we introduce "equation error"
-  $$ \epsilon_{i} = R_{i}^2 - d_{ij}^2 -2R_{s}d_{ij} - 2\mathbf{\underline{x}_{i}^T \underline{x}_{s}} \quad (i=2,3,\ldots,N) $$
-  where $\epsilon_{i}$ is to be minimized.
-  With N-1 measurements, this equation can be written in matrix notaion:
-  $$ \boldsymbol{\underline{\epsilon}} = \boldsymbol{\underline{\sigma}} - 2R_{s}\mathbf{\underline{d}} - 2 \mathbf{ S \cdot \underline{x}_{s}} $$
-  where
-  \begin{align*}
-    \boldsymbol{\underline{\sigma}} \triangleq \begin{bmatrix} R_{2}^2 - d_{21}^2 \\ R_{3}^2 - d_{31}^2 \\ \vdots \\ R_{N}^2 - d_{N1}^2 \end{bmatrix} \qquad
-    \mathbf{\underline{d}}      \triangleq \begin{bmatrix} d_{21}\\ d_{31} \\ \vdots \\ d_{N1} \end{bmatrix} \qquad
-    \mathbf{S} \triangleq \begin{bmatrix} x_2 & y_2 \\x_3 & y_3\\ \vdots & \vdots \\ x_N & y_N \end{bmatrix}
-  \end{align*}
-\end{frame}
-% page 3
-\begin{frame}{The Spherical-Interpolation Method}
-  The formal least-squares solution for $\mathbf{\underline{x}_s}$ \alert{given} $R_s$ is
-  $$ \mathbf{\underline{x}_s }= \frac{1}{2} \mathbf{S_W^*} (\boldsymbol{\underline{\sigma}} - 2R_s\mathbf{\underline{d}})$$
-  where
-  $$  \mathbf{S_W^* \triangleq (S^T S)^{-1}S^T} $$
-  The \alert{SI} method is to minimize the equation error agian with respect to $R_s$.
-  i.e. rewriting the equation error to eliminate $\underline{x}_s$ by substituting it with $R_s$, yielding a new equation error $\underline{\epsilon}^{'}$ which is linear in $R_s$:
-  \begin{align*}
-   \boldsymbol{\underline{\epsilon}^{'}} &= \boldsymbol{\underline{\sigma}} - 2R_s\mathbf{\underline{d} - S S^*_W (\boldsymbol{\underline{\epsilon}}} - 2R_s\mathbf{\underline{d}})\\
-                            &= \mathbf{(I - S S_W^*)}(\boldsymbol{\underline{\epsilon}} - 2R_s\mathbf{\underline{d}})
-  \end{align*}
-  We notice that the formal least-squares estimate of  $\mathbf{\underline{x}_s}$ \alert{given} $R_s$ is itself \textsc{linear} in $R_s$. When the minimizing $R_s$ value is found
-  in this new equation, the corresponding value of $\mathbf{\underline{x}_s}$ is automatically a minimizer of the squared equation-error norm.
-\end{frame}
-% page 4
-\begin{frame}{The Spherical-Interpolation Method}
-  The solution is given by
-  $$ \mathbf{\tilde{R}_s = \frac{\underline{d}^T P_s^{\bot}V P_s^{\bot}\boldsymbol{\underline{\sigma}}}{2\underline{d}^T P_s^{\bot} V P_s^{\bot}\underline{d}}}$$
-  where $\mathbf{P_s^{\bot}}$ is defined as
-  $$\mathbf{P_s^{\bot} \triangleq I - SS_W^*}$$
-  Substituting this solution into
-  $$  \mathbf{\underline{x}_s }= \frac{1}{2} \mathbf{S_W^*} (\boldsymbol{\underline{\sigma}} - 2R_s\mathbf{\underline{d}}) $$
-  yields the source location estimate
-  $$ \mathbf{\hat{\underline{x}}_s} = \frac{1}{2} \mathbf{(S^T W S)^{-1} S^T W (I - \frac{\underline{d}\ \underline{d}^T P_s^{\bot} V P_s^{\bot}} {\underline{d}^T P_s^{\bot} V P_s^{\bot} \underline{d}})} \boldsymbol{\underline{\sigma}} $$
-\end{frame}
-% page 5
-\begin{frame}{The Spherical-Interpolation Method}
-  When $\mathbf{W = V}$ , this estimator is the minimizer of the weighted norm of the \alert{projected} equation error
-  $$ \mathbf{Z_{\underline{x}_s} = \boldsymbol{\underline{\epsilon}}^T P_{\underline{d}}^{\bot} W P_{\underline{d}}^{\bot} \boldsymbol{\underline{\epsilon}} }$$
-  Minimizing $Z_{\underline{x}_s}$, one gets a simplified expression of the estimator
-  $$ \mathbf{\hat{\underline{x}}_s} = \frac{1}{2} \mathbf{(S^T  P_{\underline{d}}^{\bot} W P_{\underline{d}}^{\bot} S)^{-1} S^T P_{\underline{d}}^{\bot}} \boldsymbol{\underline{\sigma}} $$
-  By now, the \alert{Maximum Likelihood Estimation} of the $\mathbf{\underline{x}_s}$ is obtained.
-  \vfill
-  \textsc{in simulation:\\}
-  The weighting matrices $\textbf{W}$ and $\textbf{V}$ are both set to $\textbf{Q}^{-1}$
-\end{frame}
-
-%----------------------------------------CRLB-----------------------------------------
-\section{Cram\'{e}r-Rao Lower Bound}
-
-% page 1
-\begin{frame}{Cram\'{e}r-Rao Lower Bound}
-  In the simplest form, the CRLB states that the variance of any unbiased estimator
-  is no smaller than the inverse of the Fisher information matrix.
-   $$\textbf{var}(\hat{\theta}) \geqslant \textbf{J}(\theta)^{-1} $$
-  It is derived from the \textsc{appendix} that the CRLB of the localization problem
-  is given by
-   $$ \bm{\Phi^0} = c^2 (\textbf{G}_t^{0T} \textbf{Q}^{-1} \textbf{G}_l^0)^{-1} $$
-  Also, it is proved that the proposed method with arbitrary sensor array can achieve CRLB,
-  therefore, one can use the following method to compute the lower bound of covariance matrix
-  \begin{align*}
-    \boldsymbol{\Phi^0} &= \text{cov}(\textbf{z}_p) = \frac{1}{4} \textbf{B}^{''-1} \text{cov} (\textbf{z}_a^{'}) \textbf{B}^{''-1} \\
-           &= c^2 ( \textbf{B}^{''} \textbf{G}_a^{'T} \textbf{B}^{'-1} \textbf{G}_a^{0T} \textbf{B}^{-1} \textbf{Q}^{-1} \textbf{B}^{-1} \textbf{G}_a^{0}  \textbf{B}^{'-1} \textbf{G}_a^{'} \textbf{B}^{''} )^{-1}
-  \end{align*}
-  which is the covariance matrix of $\textbf{z}_p$ when errors are ignored.
-  \begin{center}
-    \textsc{Predefined matrices are given in the next slide}
-  \end{center}
-\end{frame}
-
-% page 2
-\begin{frame}{Cram\'{e}r-Rao Lower Bound}
-  \begin{equation*}
-    \boldsymbol{\Phi^0} = c^2 ( \textbf{B}^{''} \textbf{G}_a^{'T} \textbf{B}^{'-1} \textbf{G}_a^{0T} \textbf{B}^{-1} \textbf{Q}^{-1} \textbf{B}^{-1} \textbf{G}_a^{0}  \textbf{B}^{'-1} \textbf{G}_a^{'} \textbf{B}^{''} )^{-1}
-  \end{equation*}
-  where
-  \begin{align*}
-     \textbf{G}_a^0   &= - \begin{bmatrix} x_2  & y_2 & r_2-r_1 \\   x_3  & y_3 & r_3-r_1 \\ \vdots & \vdots & \vdots \\  x_M  & y_M & r_M-r_1 \end{bmatrix} \qquad \qquad
-     \textbf{B}^{''}  = \begin{bmatrix} (x^0 - x_1) & 0 \\  0 & (y^0 - y_1)\end{bmatrix}\\
-     \textbf{B}^{'}\  &= \text{diag}\{(x^0 - x_1),(y^0 - y_1),r_1^0\}\qquad
-     \textbf{G}_a^{'} = \begin{bmatrix} 1 & 0 & 1 \\  0 & 1 & 1\end{bmatrix}^{'} \\
-     \textbf{B}  \ \  &= \text{diag}\{r_2^0, r_3^0, \cdots r_M^0\}
-   \end{align*}
-   The covariance matrix of position estimate contains the uncertainty information in localization.
-   In particular, the position mean-square error (\textsc{MSE}) is equal to the \alert{trace} of $\boldsymbol{\Phi}$.
-\end{frame}
-%---------------------------------DAC------------------------------------------------
-\section{Divide and Conquer}
-% page 1
-\begin{frame}{Divide and Conquer}
-\begin{itemize}
-  \item The divide and conquer estimate is formed by combining maximum likelihood parameter estimates based on subsections of the data vector.
-  \vfill
-    \begin{center}
-      \includegraphics[scale=0.6]{img/DAC.PNG}
-    \end{center}
- \item  The observation $\mathbf{X}$ is partitioned into m possibly overlapping subvectors $\mathbf{X_i}$.
- \item  Each subvector is used to estimate, via maximum likelihood, parameters $\boldsymbol{\theta_i}$.
- \end{itemize}
-\end{frame}
-% page 2
-\begin{frame}{Divide and Conquer (cont'd)}
- \begin{itemize}
- \item The parameter  $\boldsymbol{\theta_i}$ is given by: 
-       $$ \boldsymbol{\theta_i} = \mathbf{S}_i\boldsymbol{\theta} $$
-       where $\mathbf{S}_i$ is a \alert{selection matrix} (the identity matrix with appropriate rows removed).
- \item The estimates, denoted by $\hat{\boldsymbol{\theta}}_{DAC}$ is given by:
-       $$ \hat{\boldsymbol{\theta}}_{DAC} = \mathbf{(S^TWS)^{-1}S^T W} \hat{\boldsymbol{\upsilon}} $$
-       where $\boldsymbol{\hat{\upsilon}}$ and $\mathbf{S}$ are concatenations of the $\hat{\boldsymbol{\theta}}_i$ and the $\mathbf{S}_i$,
-       $$ \hat{\boldsymbol{\upsilon}_i}=\begin{bmatrix}\hat{\boldsymbol{\theta}}_1\\\hat{\boldsymbol{\theta}}_2\\\vdots\\\hat{\boldsymbol{\theta}}_m\end{bmatrix},\quad
-            \mathbf{s}=\begin{bmatrix}\mathbf{S}_1\\\mathbf{S}_2\\\vdots\\\mathbf{S}_m\end{bmatrix} $$
- and $\mathbf{W}$ is a weighting matrix chosen to minimize MSE.       
- \end{itemize}
-\end{frame}
-% page 3
-\begin{frame}{Divide and Conquer (cont'd)}
- \begin{itemize}
- \item In our estimation, the maximum likelihood estimator of $\mathbf{z}_a$ is given by
- $$ \mathbf{z}_a = arg[min\{\mathbf{(h-G_az_a)^T}\boldsymbol{\Psi}^{-1}\mathbf{(h-G_az_a)}\}] $$
- \item Therefore, $\mathbf{X}$ corresponds to $\mathbf{h}$ and $\hat{\boldsymbol{\theta}}$ corresponds to $\mathbf{z_a}$.
- \vfill
- \item Dividing $\mathbf{h}$ into subsections and performing ML estimation each yields $\hat{\boldsymbol{\theta}}_{i}$ 
- \vfill
- \item Combine $\hat{\boldsymbol{\theta}}_{i}$ to get $\hat{\boldsymbol{\theta}}_{DAC}$ 
- \end{itemize}
-\end{frame}
-
-
-%-------------------------------Simulation Results------------------------------------
-\section{Simulation Results}
-
-% page 1
-\begin{frame}{Simulation Results}
-  \begin{center}
-  \begin{tabular}{l c c c c c c c c}\\
-  \multicolumn{9}{c}{TABLE \uppercase\expandafter{\romannumeral1}}\\
-  \multicolumn{9}{c}{\textsc{\tiny Comparison of MSE for the SI, Taylor-Series and Proposed Methods; Arbitrary Array and Near Source}}\\\hline
-  \scriptsize MSE  &  \scriptsize  M=3     &  \scriptsize  M=4    &  \scriptsize M=5    &  \scriptsize  M=6    &  \scriptsize  M=7    &  \scriptsize M=8    &  \scriptsize M=9     &  \scriptsize M=10     \\\hline
-  \scriptsize A    &  \scriptsize no.sol.  &  \scriptsize  1.5741 &  \scriptsize 0.1585 &  \scriptsize  0.1487 &  \scriptsize  0.1241 &  \scriptsize 0.1165 &  \scriptsize 0.1138  &  \scriptsize 0.1106   \\
-  \scriptsize B    &  \scriptsize 2.1646   &  \scriptsize  0.7095 &  \scriptsize 0.1463 &  \scriptsize  0.1338 &  \scriptsize  0.1153 &  \scriptsize 0.1059 &  \scriptsize 0.1031  &  \scriptsize 0.0947   \\
-  \scriptsize C    &  \scriptsize 2.1701   &  \scriptsize  0.7003 &  \scriptsize 0.1451 &  \scriptsize  0.1411 &  \scriptsize  0.1155 &  \scriptsize 0.1105 &  \scriptsize 0.1050  &  \scriptsize 0.0981   \\
-  \scriptsize D    &  \scriptsize 2.1546   &  \scriptsize  0.6854 &  \scriptsize 0.1492 &  \scriptsize  0.1361 &  \scriptsize  0.1150 &  \scriptsize 0.1077 &  \scriptsize 0.1037  &  \scriptsize 0.0961   \\
-  \scriptsize E    &  \scriptsize 1.9766   &  \scriptsize  0.6873 &  \scriptsize 0.1448 &  \scriptsize  0.1332 &  \scriptsize  0.1141 &  \scriptsize 0.1052 &  \scriptsize 0.1030  &  \scriptsize 0.0941   \\\hline
-  \multicolumn{9}{l}{\tiny A: SI method. B: Taylor series method. C: proposed method, \{ (14b), (22b), (24)\}. D: proposed method, \{(14b),(14a), (22a), (24)\}. }\\
-  \multicolumn{9}{l}{\tiny E: theoretical MSE of the new method = CRLB.}
-  \end{tabular}
-  \end{center}
-  %\begin{center} \textsc{Conclusions} \end{center}  % -- deleted because the page is over-crowded
-  \begin{itemize}
-		\item \small SI performs worst and our solution method gives a slightly smaller MSE than the Taylor-series method.
-		%\item \small The differences between the two proposed methods is small.
-		\item \small The proposed method with the simplified formulae still performs better than the SI method.
-	\end{itemize}
-\end{frame}
-
-%page 2
-\begin{frame}{Simulation Results}
-  \begin{center}
-  \begin{tabular}{l c c c c c c c c}\\
-  \multicolumn{9}{c}{TABLE \uppercase\expandafter{\romannumeral2}}\\
-  \multicolumn{9}{c}{\textsc{\tiny Comparison of MSE for the Proposed and Taylor-Series Methods; Linear Array and Near Source}}\\\hline
-  \scriptsize MSE  &   \scriptsize  M=3   &  \scriptsize  M=4    &  \scriptsize M=5    &  \scriptsize  M=6    &  \scriptsize  M=7    &  \scriptsize M=8    &  \scriptsize  M=9     &  \scriptsize  M=10   \\\hline
-  \scriptsize B    &   \scriptsize no.sol.&  \scriptsize  1.3342 &  \scriptsize 0.3794 &  \scriptsize  0.1247 &  \scriptsize  0.0618 &  \scriptsize 0.0283 &  \scriptsize  0.0175  &  \scriptsize  0.0096 \\
-  \scriptsize C    &   \scriptsize 8.2421 &  \scriptsize  1.1107 &  \scriptsize 0.3563 &  \scriptsize  0.1222 &  \scriptsize  0.0619 &  \scriptsize 0.0286 &  \scriptsize  0.0178  &  \scriptsize  0.0098 \\
-  \scriptsize D    &   \scriptsize 8.2289 &  \scriptsize  1.1020 &  \scriptsize 0.3566 &  \scriptsize  0.1219 &  \scriptsize  0.0613 &  \scriptsize 0.0286 &  \scriptsize  0.0174  &  \scriptsize  0.0096 \\
-  \scriptsize E    &   \scriptsize 7.2718 &  \scriptsize  1.0984 &  \scriptsize 0.3543 &  \scriptsize  0.1217 &  \scriptsize  0.0611 &  \scriptsize 0.0283 &  \scriptsize  0.0174  &  \scriptsize  0.0095 \\\hline
-  \multicolumn{9}{l}{\tiny B: Taylor series method. C: proposed method, \{ (28) with $\Psi = Q$, (29)\}. D: proposed method, \{(28) with $\Psi = Q$, (28),(29)\}. }\\
-  \multicolumn{9}{l}{\tiny E: theoretical MSE of the new method = CRLB.}
-  \end{tabular}
-  \end{center}
-  \begin{center} \textsc{Conclusions} \end{center}
-  \begin{itemize}
-		\item \small The localization MSE decreases as the number of sensor increases.
-		\item \small The Taylor-series method gives almost identical results as the new method.
-	\end{itemize}
-\end{frame}
-
-%page 3
-\begin{frame}{Simulation Results}
-  \begin{center}
-  \begin{tabular}{l c c c c c c c}\\
-  \multicolumn{8}{c}{TABLE \uppercase\expandafter{\romannumeral3}}\\
-  \multicolumn{8}{c}{\textsc{\tiny Comparison of MSE for the SI, Taylor-Series and Proposed Methods;}}\\
-  \multicolumn{8}{c}{\textsc{\tiny Arbitrary Array and Distant Source}}\\\hline
-  \scriptsize MSE & \scriptsize  M=4   &  \scriptsize M=5    & \scriptsize  M=6   & \scriptsize  M=7   &  \scriptsize M=8   &  \scriptsize M=9   &  \scriptsize M=10   \\\hline
-  \scriptsize A   & \scriptsize  14796 &  \scriptsize 212.10 & \scriptsize  48.16 & \scriptsize  40.70 & \scriptsize  42.02 &  \scriptsize 39.99 &  \scriptsize 37.57  \\
-  \scriptsize B   &  \scriptsize 346.52&  \scriptsize 147.50 &  \scriptsize 44.98 &  \scriptsize 38.77 &  \scriptsize 39.40 &  \scriptsize 37.56 &  \scriptsize 33.39  \\
-  \scriptsize C   &  \scriptsize 450.65&  \scriptsize 143.92 &  \scriptsize 44.74 &  \scriptsize 38.69 &  \scriptsize 38.53 &  \scriptsize 36.85 &  \scriptsize 34.14   \\
-  \scriptsize E   &  \scriptsize 328.36&   \scriptsize 143.73&  \scriptsize 44.00 &  \scriptsize 38.48 &  \scriptsize 38.47 &  \scriptsize 36.41 &  \scriptsize 33.68  \\\hline
-  \multicolumn{8}{l}{\tiny A: SI method. B: Taylor series method. C: proposed method, \{ (14b), (22b), (24)\}}\\
-  \multicolumn{8}{l}{\tiny E: theoretical MSE of the new method = CRLB.}
-  \end{tabular}
-  \end{center}
-  \begin{center} \textsc{Conclusions} \end{center}
-  \begin{itemize}
-		\item \small The proposed method performs much better than SI and slightly better than Taylor-series method.
-		\item \small The proposed method performs significantly better when M is small.
-	\end{itemize}
-
-\end{frame}
-
-% page 4
-\begin{frame}{Simulation Results}
-  \begin{center}
-  \begin{tabular}{l c c c c c c c}\\
-  \multicolumn{8}{c}{TABLE \uppercase\expandafter{\romannumeral4}}\\
-  \multicolumn{8}{c}{\textsc{\tiny Comparison of MSE for the Proposed and Taylor-Series Methods;}}\\
-  \multicolumn{8}{c}{\textsc{\tiny Linear Array and Distant Source}}\\\hline
-  \scriptsize MSE & \scriptsize  M=4     &  \scriptsize M=5   & \scriptsize  M=6   & \scriptsize  M=7   &  \scriptsize M=8   &  \scriptsize M=9   &  \scriptsize  M=10   \\\hline
-  \scriptsize B   &  \scriptsize 1802.42 &  \scriptsize 435.16&  \scriptsize 155.40&  \scriptsize 68.87 &  \scriptsize 34.52 &  \scriptsize 18.77  &  \scriptsize 10.83    \\
-  \scriptsize C   &  \scriptsize 1583.04 &  \scriptsize 406.42&  \scriptsize 153.59&  \scriptsize 68.45 &  \scriptsize 34.30 &  \scriptsize 18.81 &  \scriptsize  10.87  \\
-  \scriptsize E   &  \scriptsize 1435.26 &   \scriptsize407.60 &  \scriptsize153.83 &  \scriptsize 67.96 &  \scriptsize 34.20 &  \scriptsize18.54 &  \scriptsize 10.87 \\\hline
-  \multicolumn{8}{l}{\tiny B: Taylor series method. C: proposed method, \{ (14b), (22b), (24)\}.}\\
-  \multicolumn{8}{l}{\tiny E: theoretical MSE of the new method = CRLB.}
-  \end{tabular}
-  \end{center}
-  \begin{center} \textsc{Conclusions} \end{center}
-  \begin{itemize}
-		%\item \small The localization MSE decreases as the number of sensor increases.
-		\item \small The proposed method performs better than Taylor-series method especially when M is small.
-	\end{itemize}
-
-\end{frame}
-
-% page 5
-\begin{frame}{Simulation Results}
-  \begin{center}
-  \includegraphics[scale=0.35]{img/fig4.JPG}
-  \end{center}
-  \begin{center} \textsc{Conclusions} \end{center}
-  \begin{itemize}
-    \item \small The proposed method performs only a little worse than the CRLB.
-    \item \small The error thresholding effect doesn't occur until $ \sigma_d^2 = 0.0001 $
-  \end{itemize}
-\end{frame}
-
-% page 6
-\begin{frame}{Comparison between methods}
-  \begin{center}
-  \includegraphics[scale = 0.25]{img/compare.png}
-  \end{center}
-  \begin{center} \textsc{Conclusions} \end{center}
-  \begin{itemize}
-    \item \small DAC has the worst performance.
-    \item \small Taylor-series, SI and proposed method has similar performance.
-  \end{itemize}
-\end{frame}
-
-% page 7
-\begin{frame}{3D Simulation: Case I}
-  \begin{center}
-  \includegraphics[scale = 0.25]{img/case1result.png}
-  \end{center}
-  \begin{center} \textsc{case I: 3D map} \end{center}
-  \begin{itemize}
-    \item \small Test Space: $500m\times500m\times120m$
-    \item \small All sensors are randomly placed on ground.
-    \item \small 10000 independent tests were run, result averaged.
-  \end{itemize}
-\end{frame}
-
-% page 8
-\begin{frame}{3D Simulation: Case I}
-  \begin{center}
-  \includegraphics[scale = 0.25]{img/case1result_all.png}
-  \end{center}
-  \begin{center} \textsc{case I: independent results} \end{center}
-  \begin{itemize}
-    \item \small Each result of independent tests is displayed (simplified for visual convenience).
-    \item \small The error in every direction is no larger than 0.5.
-  \end{itemize}
-\end{frame}
-
-% page 9
-\begin{frame}{3D Simulation: Case I}
-  \begin{center}
-  \includegraphics[scale = 0.15]{img/case1error.png}
-  \end{center}
-  \begin{center} \textsc{case I: Error Distance, error in x, y, z direction} \end{center}
-  \begin{itemize}
-    \item \small The distance between estimated position and real position is no larger than 0.4m, and mostly concentrated between [0, 0.1].
-    \item \small The error in x, y, z direction is roughly normally distributed.
-    \item \small The error in Case I concentrates in a very small region, thus verifies the algorithm in coplanar case. 
-  \end{itemize}
-\end{frame}
-
-% page 10
-\begin{frame}{3D Simulation: Case II}
-  \begin{center}
-  \includegraphics[scale = 0.2]{img/case2result.png}
-  \end{center}
-  \begin{center} \textsc{case II: 3D map} \end{center}
-  \begin{itemize}
-    \item \small Test Space: $500m\times500m\times120m$
-    \item \small N-1 sensors are randomly placed on ground, 1 sensor at (0,0,40).
-  \end{itemize}
-\end{frame}
-
-% page 11
-\begin{frame}{3D Simulation: Case II}
-  \begin{center}
-  \includegraphics[scale = 0.2]{img/case2result_all.png}
-  \end{center}
-  \begin{center} \textsc{case II: independent results} \end{center}
-  \begin{itemize}
-    \item \small Each result of independent tests is displayed (simplified for visual convenience).
-    \item \small The error in every direction is no larger than 0.5m.
-  \end{itemize}
-\end{frame}
-
-% page 12
-\begin{frame}{3D Simulation: Case II}
-  \begin{center}
-  \includegraphics[scale = 0.15]{img/case2error.png}
-  \end{center}
-  \begin{center} \textsc{case II: Error Distance, error in x, y, z directions} \end{center}
-  \begin{itemize}
-    \item \small The distance is no larger than 0.1m, performance is even better than coplanar case.
-    \item \small Small error region verifies the algorithm in arbitrary case.
-  \end{itemize}
-\end{frame}
-
-% page 13
-\begin{frame}{Discussion: Distribution of Sensors}
-Question: How does the distribution of sensors affect the results? 
-\vfill
-\textsc{Available choices}: 
-\begin{itemize}
-\item \alert{sensors wrap up the source}
-\item \alert{sensors distributes on one side of the source}
-\end{itemize}
-\vfill
-\textsc{Experiment Conditions}:
-\begin{itemize}
-\item 1st sensor placed at: $(0,0,z), z\in\{4, 8, 12, \ldots, 120\}$.
-\item Other sensors stay on the ground.
-\item Source is placed at $(x,y,60)$.
-\item Record the error distance, and error in x, y, z directions of each z.  
-\end{itemize}
-When $z < 60$, sensors distributes on one side of source;\\
-When $z > 60$, sensors wrap up the source. 
-\end{frame}
-
-% page 14
-\begin{frame}{Discussion: Distribution of Sensors}
- \begin{center}
-  \includegraphics[scale = 0.15]{img/error_vs_z.png}
-  \end{center}
- \begin{center} \textsc{Simulation Result of different sensor distribution} \end{center}
-\end{frame}
-
-% page 15
-\begin{frame}{Discussion: Distribution of Sensors}
- \begin{center} \textsc{Conclusion} \end{center}
-\begin{itemize}
-\item When $z < 60$, the error distance is \alert{larger} than case of $z > 60$
-\vfill
-\item The difference in y directions is not obvious
-\vfill
-\item When $z > 60$, the error in x, y direction gets smaller as z grows. 
-\vfill
-\item Error in "wrapping up" case is \alert{smaller} than "one side" case. 
-\end{itemize}
-\end{frame}
-
 
 
 \end{document}
