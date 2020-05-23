@@ -57,225 +57,155 @@
 
 \begin{frame}{选题背景}
 
-  \begin{enumerate}
-    \setlength\itemsep{1.5em}
-    \item 在“后摩尔时代”，研究者逐渐转向领域定制架构设计，FPGA提供了良好的可重构性；
-    \item 伴随着神经网络的兴起，学界和工业界对其加速器设计的研究兴趣不断提高，以GPU为代表的
-    平行架构计算平台得到广泛应用；
-    \item 现代高端异构FPGA能够提供更强的计算性能，足够的片上存储，因此以FPGA为代表的专用加速器
-    在大规模计算平台上的应用开始兴起；
-    \item 随着神经网络加速器计算密度增加，设计规模变大，现有的EDA工具已经不能适应高资源利用率场景下
-    的布局布线要求，因此，面向此类应用的新型布局布线算法成为未来研究的重点。
-  \end{enumerate} 
-
-\end{frame}  
-
-
-\begin{frame}{工作概述}
-
-  本毕业设计的目标与主要贡献为：
-
-  \begin{columns}[T, onlytextwidth]
-    \column{0.47\textwidth}
-
-    \vspace{0.5cm}
-
-    \begin{enumerate}
-      \setlength\itemsep{1.5em}
-      \item 解决大规模加速器设计布局难度大、时间成本高的问题；
-      \item 提出时间更短、性能更优的进化布局算法；
-      \item 构建端到端的自动FPGA布局布线框架：RapidLayout；
-      \item 提出布局结果的迁移学习方法。
-    \end{enumerate}
-
-    \column{0.5\textwidth}
-    % \begin{figure}
-    %   \includegraphics[width=1\textwidth,height=1.3\textwidth]{img/rapidlayout-placed}
-    %   \caption{使用RapidLayout完成布局布线的脉动阵列神经网络加速器}
-    % \end{figure}
-
-    \begin{figure}[h]
-      \centering
-      \subfloat[Vivado]{
-        \includegraphics[width=0.5\textwidth, height=0.8\textwidth]{img/vivado-placed.png}
-      }
-      \subfloat[RapidLayout] {
-        \includegraphics[width=0.5\textwidth, height=0.8\textwidth]{img/manual-placed.png}
-      }
-      \caption{
-       480核CNN加速器布局布线
-      }
-      \label{fig:overview}
-    \end{figure}
-
-
-  \end{columns}
-
-
-\end{frame}
-
-
-
-
-
-
-
-\section{相关技术概述}
-
-\begin{frame}{FPGA实现过程及布局算法调研}
-
-  \begin{columns}[T, onlytextwidth]
-    \column{0.5\textwidth}
-    FPGA设计实现过程：
-      \begin{figure}
-        \includegraphics[width=0.8\textwidth]{img/cad.png}
-      \end{figure}
-
-    \column{0.5\textwidth}
-      现有布局算法：
-
-      \begin{enumerate}
-        \item 模拟退火 
-        \begin{itemize}
-          \item 应用广泛，性能好
-          \item 伸缩性差，时间长
-        \end{itemize}
-        \item Min-Cut法 
-        \begin{itemize}
-          \item 速度较快
-          \item 易收敛至局部最优
-        \end{itemize}
-        \item 解析布局算法 
-        \begin{itemize}
-          \item State-of-the-Art
-          \item 合法化步骤复杂
-        \end{itemize}
-        \item 进化算法 
-        \begin{itemize}
-          \item 性能次于退火，但可提升
-          \item 设计灵活，适用于并行化
-        \end{itemize}
-      \end{enumerate}
-
-  \end{columns}
-
-\end{frame}
-
-\begin{frame}{RapidWright与硬核IP简介}
-
 \begin{figure}
-  \includegraphics[width=1.0\textwidth]{img/hardblocks.png}
-  \vspace{-0.3cm}
+  \subfloat[摩尔定律逐渐失效]{
+		\includegraphics[width=0.30\textwidth, height=0.5\textwidth, valign=c]{img/moore.pdf}
+		\vphantom{
+			\includegraphics[width=0.30\textwidth, height=0.4\textwidth, valign=c]{img/alveo.pdf}
+			\includegraphics[width = 0.30\textwidth, height=0.5\textwidth, valign=c]{img/vivado-placed}
+		}
+	}
+	\hfill
+	\subfloat[ALVEO 数据中心加速卡]{
+		\includegraphics[width=0.30\textwidth, height=0.4\textwidth, valign=c]{img/alveo.pdf}
+		\vphantom{
+			\includegraphics[width = 0.30\textwidth, height=0.5\textwidth, valign=c]{img/vivado-placed}
+		}
+	}
+	\hfill
+	\subfloat[EDA工具无法满足需求]{
+		\includegraphics[width = 0.30\textwidth, height=0.5\textwidth, valign=c]{img/vivado-placed}
+	}
+	
+	\caption{“后摩尔时代”，FPGA应用广泛，但EDA工具无法适应大规模设计}
 \end{figure}
 
-\begin{columns}[T, onlytextwidth]
-  \column{0.4\textwidth}
-    \begin{figure}
-      \includegraphics[width=\textwidth]{img/vivado_dcps.png}
-    \end{figure}
+\end{frame} 
 
 
-  \column{0.55\textwidth}
-    {\fontsize{7}{10}
-    \emph{UltraScale+系列硬核IP}
-    \begin{itemize}
-      \item {\bf DSP48E2:} 27$\times$18乘，48位累加，\alert{可级联}
-      \item {\bf RAMB18:} 18KB TDP/SDP，位宽可配置，\alert{可级联} 
-      \item {\bf URAM288:} 288KB 超大型，位宽不可配，\alert{可级联}
-    \end{itemize}
+% \begin{frame}{工作概述}
 
-    \emph{RapidWright FPGA实现框架}
-    \begin{itemize}
-      \item 可读写Vivado实现任意阶段checkpoint文件
-      \item 支持模块化快速实现方法
-      \item 精确修改逻辑网表与物理网表，快速获得元件信息（如线长，RPM坐标位置）
-    \end{itemize}
-    }
-  
-\end{columns}
+%   本毕业设计的目标与主要贡献为：
 
-\end{frame}
+%   \begin{columns}[T, onlytextwidth]
+%     \column{0.47\textwidth}
 
-\begin{frame}{卷积计算单元设计}
+%     \vspace{0.5cm}
+
+%     \begin{enumerate}
+%       \setlength\itemsep{1.5em}
+%       \item 解决大规模加速器设计布局难度大、时间成本高的问题；
+%       \item 提出时间更短、性能更优的进化布局算法；
+%       \item 构建端到端的自动FPGA布局布线框架：RapidLayout；
+%       \item 提出布局结果的迁移学习方法。
+%     \end{enumerate}
+
+%     \column{0.5\textwidth}
+%     % \begin{figure}
+%     %   \includegraphics[width=1\textwidth,height=1.3\textwidth]{img/rapidlayout-placed}
+%     %   \caption{使用RapidLayout完成布局布线的脉动阵列神经网络加速器}
+%     % \end{figure}
+
+%     \begin{figure}[h]
+%       \centering
+%       \subfloat[Vivado]{
+%         \includegraphics[width=0.5\textwidth, height=0.8\textwidth]{img/vivado-placed.png}
+%       }
+%       \subfloat[RapidLayout] {
+%         \includegraphics[width=0.5\textwidth, height=0.8\textwidth]{img/manual-placed.png}
+%       }
+%       \caption{
+%        480核CNN加速器布局布线
+%       }
+%       \label{fig:overview}
+%     \end{figure}
+
+
+%   \end{columns}
+
+
+% \end{frame}
+
+
+% \section{相关技术概述}
+
+\begin{frame}{FPGA实现过程与硬核IP介绍}
 
   \begin{columns}[T, onlytextwidth]
     \column{0.4\textwidth}
-    \begin{center}
-      \vspace{-0.5cm}
-      {\small Line-Buffer卷积核设计} 
-      \vspace{-0.5cm}
-    \end{center}
-    \begin{figure}
-      \includegraphics[width=\textwidth]{img/line-buffer.png}
-    \end{figure}
-
-    {\fontsize{8}{12}
-    \begin{itemize}
-      \item {\bf Line-Buffer} 设计针对内存受限场景，注重数据重用，规模较小；
-      \item {\bf 脉动阵列} 针对计算受限场景，解决大规模高速运算问题。
-    \end{itemize}
-    }
+      \begin{figure}
+        \includegraphics[width=0.7\textwidth]{img/cad}
+      \end{figure}
     
 
+    \column{0.6\textwidth}
+    \begin{figure}
+      \includegraphics[width=1.1\textwidth]{img/hardblocks}
+    \end{figure}  
+
+
+  \end{columns}
+
+  \vspace{-0.6cm}
+
+    现有布局算法：  
+        \begin{enumerate}
+          \item 模拟退火：性能好但时间长，伸缩性差
+          % \begin{itemize}
+          %   \item 应用广泛，性能好
+          %   \item 伸缩性差，时间长
+          % \end{itemize}
+          \item Min-Cut法：速度快但易收敛至局部最优
+          % \begin{itemize}
+          %   \item 速度较快
+          %   \item 易收敛至局部最优
+          % \end{itemize}
+          \item 解析布局算法 ：SOTA但合法化复杂
+          % \begin{itemize}
+          %   \item State-of-the-Art
+          %   \item 合法化步骤复杂
+          % \end{itemize}
+          \item 进化算法：性能次于退火，适用并行化
+          % \begin{itemize}
+          %   \item 性能次于退火，但可提升
+          %   \item 设计灵活，适用于并行化
+          % \end{itemize}
+        \end{enumerate}    
+
+\end{frame}
+
+
+\begin{frame}{脉动阵列与进化算法}
+
+  \begin{columns}[T, onlytextwidth]
+  
     \column{0.5\textwidth}
-    \begin{center}
-      \vspace{-0.5cm}
-      {\small 脉动阵列 (Systolic Arrays) }
-      \vspace{-0.5cm}
-    \end{center}
     \begin{figure}
       \includegraphics[width=\textwidth]{img/cascade.png}
       \vspace{-0.5cm}
     \end{figure}
 
     \begin{figure}
-      \includegraphics[width=\textwidth]{img/array}
+      \includegraphics[width=0.8\textwidth]{img/array}
+      \caption{脉动阵列设计}
     \end{figure}
-    
-  \end{columns}
-
-\end{frame}
-
-
-\begin{frame}{NSGA-II 与 CMA-ES}
-
-  \begin{columns}[T, onlytextwidth]
+  
     \column{0.4\textwidth}
-    \vspace{-0.5cm}
-      \begin{center}
-        协方差矩阵适应进化策略(CMA-ES)
-        \animategraphics[loop, controls, width=0.8\textwidth]{10}{img/cmaes/frame}{0}{19}
-      \end{center}
-      {\fontsize{8}{10}
-      \begin{itemize}
-        \item 可行解建模为N维高斯随机过程的采样
-        \item 前25\%个体用于更新采样协方差矩阵和均值向量
-        \item State-of-the-art非求导连续域优化
-      \end{itemize}
-      }
-
-    \column{0.5\textwidth}
-    \vspace{-0.5cm}
+    \vspace{-0.2cm}
     \begin{center}
-      非支配排序遗传算法(NSGA-II)
+      \animategraphics[loop, controls, width=0.8\textwidth]{10}{img/cmaes/frame}{0}{19}
     \end{center}
+
+    \vspace{-0.3cm}
     \begin{figure}
       \includegraphics[width=\textwidth]{img/NSGA-II.pdf}
-      \caption{NSGA-II优化过程示意图}
+      \caption{CMA-ES 与 NSGA-II}
     \end{figure}
 
-    {\fontsize{8}{10}
-    \begin{itemize}
-      \item 经典多目标优化算法
-      \item 使用非支配排序首先将个体分成帕累托前端 (Pareto-Front)
-      \item 同一前端内使用Crowding Distance排序保留多样性
-    \end{itemize}
-    }
-
   \end{columns}
-  
 
 \end{frame}
+
 
 \section{基于进化算法的脉动阵列布局}
 
@@ -590,94 +520,81 @@
 \begin{frame}{实验设计与算法性能对比}
   
   \begin{columns}[T, onlytextwidth]
-    \column{0.4\textwidth}
-    {\fontsize{7}{12}\selectfont
-    
-    {\bf 对比实验设计}\\
 
+    \column{0.4\textwidth}
+
+    {\fontsize{7}{12}\selectfont
       - 参数优化的模拟退火；\\
       - 标准布局工具VPR；\\
       - 最先进解析布局UTPlaceF；\\
-      - 单目标遗传算法;\\
+      - 单目标遗传算法（仅优化边界框）;\\
       - 手工布局设计。\\
     
-    {\bf 实验结果对比} \\
-      - CMA-ES和NSGA-II相对SA快\alert{2.7--30.8}倍;\\
-      - 线长相对UTPlaceF, VPR优化\alert{1.8--2.4}倍；\\
-      - 边界框尺寸相对二者优化\alert{2.0--4.1}倍。
+    % {\bf 实验结果对比} \\
+    %   - 相对SA快\alert{2.7--30.8}倍;\\
+    %   - 线长相对UTPlaceF, VPR优化\alert{1.8--2.4}倍；\\
+    %   - 边界框尺寸相对二者优化\alert{2.0--4.1}倍。
     }
 
-    \column{0.6\textwidth}
-    \vspace{-0.6cm}
-    \begin{figure}
-      \includegraphics[width=1.2\textwidth]{img/objective-runtime}
-      %\caption{退火算法、NSGA-II、NSGA-II Reduced、CMA-ES、GA、UTPlaceF、VPR 的布局结果对比：目标函数值与时钟频率} 
-      \label{fig:objective}
-    \end{figure}
-
-  \end{columns}
-
-  \vspace{-1.0cm}
-
-  \begin{table}
-        % \caption{平均运行时间，平均线长，平均最大边界框尺寸，达到650MHz最少所需流水线寄存器数目，以及平均时钟频率对比。
-        % 左侧为本文提出的NSGA-II, NSGA-II Reduced, CMA-ES，右侧为对比算法。与各个对比算法相比每个指标的提升倍数在
-        % 括号内标出，其中\textcolor{red}{红色}$\rightarrow$NSGA-II，\textcolor{olive}{绿色}$\rightarrow$CMA-ES}
-      \label{table:comparison}
-      \centering
-      \begin{adjustbox}{width=1.1\textwidth,center}
-      \begin{tabular}{c|c c| c c c c c}
-      \toprule
-      Method             & NSGA-II    	          & CMA-ES       & SA 					                                                                       & GA 			                                                                  & VPR     	                                                                & UTPlaceF 		                                                                   &  Manual \\
-      \midrule
-      Runtime (secs)     & 586 (323)		          & 51  		     &1577     (\textcolor{red}{2.7$\times$}, \textcolor{olive}{30.8$\times$})		        & 850 (\textcolor{red}{1.5$\times$}, \textcolor{olive}{16.7$\times$})		      & 76 (\textcolor{red}{0.13$\times$}, \textcolor{olive}{1.5$\times$})		    &  473 (\textcolor{red}{0.8$\times$}, \textcolor{olive}{9.3$\times$})            & 1--2 wks\\
-      Wirelength  	     & 3.5K  (3.5K)   		    & 4.4K     		 &3.1K 	   (\textcolor{red}{0.9$\times$}, \textcolor{olive}{0.7$\times$})		          & 9.2K  (\textcolor{red}{2.6$\times$}, \textcolor{olive}{2.1$\times$})    		& 8.5K (\textcolor{red}{2.4$\times$}, \textcolor{olive}{1.9$\times$})   		&  7.8K  (\textcolor{red}{2.2$\times$}, \textcolor{olive}{1.8$\times$})          & 8.1K (\textcolor{red}{2.3$\times$}, \textcolor{olive}{1.8$\times$})  \\
-      BBox      	       & 1183  (1543)   		    & 1606     		 &1387	   (\textcolor{red}{1.2$\times$}, \textcolor{olive}{0.9$\times$})		          & 1908  (\textcolor{red}{1.6$\times$}, \textcolor{olive}{1.2$\times$})   		  & 4941	(\textcolor{red}{4.1$\times$}, \textcolor{olive}{3.1$\times$})  		&   3218	(\textcolor{red}{2.7$\times$}, \textcolor{olive}{2.0$\times$})         & 1785 (\textcolor{red}{1.5$\times$}, \textcolor{olive}{1.1$\times$})  \\
-      Pipeline Reg.		   & 256K  (273K) 		      & 273K	   		 &273K	   (\textcolor{red}{1.1$\times$}, \textcolor{olive}{1$\times$}) 	 	          & 323K	(\textcolor{red}{1.3$\times$}, \textcolor{olive}{1.2$\times$})   		  & -		                                                                      &   -                                                                            & 306K (\textcolor{red}{1.2$\times$}, \textcolor{olive}{1.1$\times$})   \\
-      Frequency	(MHz)	 	 & 733  (688)   & 708 	 &711  (\textcolor{red}{0.97$\times$}, \textcolor{olive}{1.0$\times$})		        & 585 	(\textcolor{red}{0.80$\times$}, \textcolor{olive}{0.83$\times$})	& - 	      	                                                              & - 	                                                                           & 693 (\textcolor{red}{0.95$\times$}, \textcolor{olive}{0.98$\times$}) \\
-      \bottomrule
-      \end{tabular}
-    \end{adjustbox}
-  \end{table}
-
-  {\fontsize{7}{10}\selectfont
-   括号内为指标提升倍数，其中\textcolor{red}{红色}$\rightarrow$NSGA-II，\textcolor{olive}{绿色}$\rightarrow$CMA-ES
-  }
-
-\end{frame}
-
-\begin{frame}{算法收敛对比}
-
-  \begin{figure}
-    \centering
-    \includegraphics[width=\textwidth]{img/convergence.pdf}
-    \caption{退火、NSGA-II、CMA-ES、GA 收敛进程对比}
-  \end{figure}
-
-  \vspace{-0.5cm}
-
-  \begin{columns}[T, onlytextwidth]
-  \column{0.4\textwidth}
     \begin{figure}
       \includegraphics[width=\textwidth]{img/frequency_depth}
       \caption{时钟频率 vs 流水级数}
     \end{figure}
 
-  \column{0.55\textwidth}
+    \column{0.6\textwidth}
+    %\vspace{-0.2cm}
+    \begin{figure}
+      \includegraphics[width=1\textwidth]{img/objective-runtime.png}
+      \caption{线长、边界框尺寸、时钟频率对比} 
+      \label{fig:objective}
+    \end{figure}
 
-  \vspace{0.3cm}
-  
-  {\fontsize{8}{12}\selectfont 
-  {\bf 实验结论:}\\
-
-  1. 仅优化边界框不易于收敛；\\
-  2. 单目标GA优化过程不稳定，证明多目标必要性；\\
-  3. 提出的进化算法在1--2级流水可达到750MHz的超高频率；\\
-  4. NSGA-II节省约17K个(6\%)流水寄存器。
-  }
   \end{columns}
 
+  \vspace{-0.2cm}
+
+
+  {\fontsize{8}{12}\selectfont
+
+  {\bf 实验结论:}\\
+  \begin{enumerate}
+    \item 进化算法相对SA快\alert{2.7--30.8}倍，线长相对UTPlaceF, VPR优化\alert{1.8--2.4}倍；
+    \item 边界框尺寸相对二者优化\alert{2.0--4.1} 倍;
+    \item 进化算法1--2级流水可达750MHz超高频率，NSGA-II节省约17K(6\%)流水寄存器。
+  \end{enumerate}
+  }
+
+  % \vspace{-1.0cm}
+
+
+
+  % \begin{table}
+  %       % \caption{平均运行时间，平均线长，平均最大边界框尺寸，达到650MHz最少所需流水线寄存器数目，以及平均时钟频率对比。
+  %       % 左侧为本文提出的NSGA-II, NSGA-II Reduced, CMA-ES，右侧为对比算法。与各个对比算法相比每个指标的提升倍数在
+  %       % 括号内标出，其中\textcolor{red}{红色}$\rightarrow$NSGA-II，\textcolor{olive}{绿色}$\rightarrow$CMA-ES}
+  %     \label{table:comparison}
+  %     \centering
+  %     \begin{adjustbox}{width=1.1\textwidth,center}
+  %     \begin{tabular}{c|c c| c c c c c}
+  %     \toprule
+  %     Method             & NSGA-II    	          & CMA-ES       & SA 					                                                                       & GA 			                                                                  & VPR     	                                                                & UTPlaceF 		                                                                   &  Manual \\
+  %     \midrule
+  %     Runtime (secs)     & 586 (323)		          & 51  		     &1577     (\textcolor{red}{2.7$\times$}, \textcolor{olive}{30.8$\times$})		        & 850 (\textcolor{red}{1.5$\times$}, \textcolor{olive}{16.7$\times$})		      & 76 (\textcolor{red}{0.13$\times$}, \textcolor{olive}{1.5$\times$})		    &  473 (\textcolor{red}{0.8$\times$}, \textcolor{olive}{9.3$\times$})            & 1--2 wks\\
+  %     Wirelength  	     & 3.5K  (3.5K)   		    & 4.4K     		 &3.1K 	   (\textcolor{red}{0.9$\times$}, \textcolor{olive}{0.7$\times$})		          & 9.2K  (\textcolor{red}{2.6$\times$}, \textcolor{olive}{2.1$\times$})    		& 8.5K (\textcolor{red}{2.4$\times$}, \textcolor{olive}{1.9$\times$})   		&  7.8K  (\textcolor{red}{2.2$\times$}, \textcolor{olive}{1.8$\times$})          & 8.1K (\textcolor{red}{2.3$\times$}, \textcolor{olive}{1.8$\times$})  \\
+  %     BBox      	       & 1183  (1543)   		    & 1606     		 &1387	   (\textcolor{red}{1.2$\times$}, \textcolor{olive}{0.9$\times$})		          & 1908  (\textcolor{red}{1.6$\times$}, \textcolor{olive}{1.2$\times$})   		  & 4941	(\textcolor{red}{4.1$\times$}, \textcolor{olive}{3.1$\times$})  		&   3218	(\textcolor{red}{2.7$\times$}, \textcolor{olive}{2.0$\times$})         & 1785 (\textcolor{red}{1.5$\times$}, \textcolor{olive}{1.1$\times$})  \\
+  %     Pipeline Reg.		   & 256K  (273K) 		      & 273K	   		 &273K	   (\textcolor{red}{1.1$\times$}, \textcolor{olive}{1$\times$}) 	 	          & 323K	(\textcolor{red}{1.3$\times$}, \textcolor{olive}{1.2$\times$})   		  & -		                                                                      &   -                                                                            & 306K (\textcolor{red}{1.2$\times$}, \textcolor{olive}{1.1$\times$})   \\
+  %     Frequency	(MHz)	 	 & 733  (688)   & 708 	 &711  (\textcolor{red}{0.97$\times$}, \textcolor{olive}{1.0$\times$})		        & 585 	(\textcolor{red}{0.80$\times$}, \textcolor{olive}{0.83$\times$})	& - 	      	                                                              & - 	                                                                           & 693 (\textcolor{red}{0.95$\times$}, \textcolor{olive}{0.98$\times$}) \\
+  %     \bottomrule
+  %     \end{tabular}
+  %   \end{adjustbox}
+  % \end{table}
+
+  % {\fontsize{7}{10}\selectfont
+  %  括号内为指标提升倍数，其中\textcolor{red}{红色}$\rightarrow$NSGA-II，\textcolor{olive}{绿色}$\rightarrow$CMA-ES
+  % }
+
 \end{frame}
+
 
 \begin{frame}{迁移学习性能}
   %\vspace{-2cm}
@@ -721,63 +638,79 @@
 
 \begin{frame}{总结与展望}
 
-  {\fontsize{8}{10}\selectfont
-  {\bf 全文的主要工作及贡献点如下：}
-  \begin{enumerate}
-    \setlength\itemsep{1.5em}
-    \item 将硬核布局建模为约束多目标优化问题，应用NSGA-II与CMA-ES两种进化算法求解，在运行时间
-    和结果质量多个方面超越State-of-the-art 解析布局方法；
-    \item 针对硬核级联造成的布局限制提出创新的基因型设计；
-    \item 实现了自动化、端到端的FPGA布局布线框架，解决了大规模加速器设计的布局困难、周期长的问题；
-    \item 提出了布局的迁移学习方法，显著加速了硬核布局的跨设备优化过程。
-  \end{enumerate}
+  % {\fontsize{8}{10}\selectfont
+  % {\bf 全文的主要工作及贡献点如下：}
+  % \begin{enumerate}
+  %   \setlength\itemsep{1.5em}
+  %   \item 将硬核布局建模为约束多目标优化问题，应用NSGA-II与CMA-ES两种进化算法求解，在运行时间
+  %   和结果质量多个方面超越State-of-the-art 解析布局方法；
+  %   \item 针对硬核级联造成的布局限制提出创新的基因型设计；
+  %   \item 实现了自动化、端到端的FPGA布局布线框架，解决了大规模加速器设计的布局困难、周期长的问题；
+  %   \item 提出了布局的迁移学习方法，显著加速了硬核布局的跨设备优化过程。
+  % \end{enumerate}
 
-  {\bf 研究展望：}
-  \begin{enumerate}
-    \setlength\itemsep{1.5em}
-    \item 通用性：RapidLayout可支持任意使用硬核IP的设计布局，未来可做进一步拓展；
-    \item GPU加速：进化算法基于种群的优化方法适用于平行计算，未来可用GPU加速。
-  \end{enumerate}
-  }
+  % {\bf 研究展望：}
+  % \begin{enumerate}
+  %   \setlength\itemsep{1.5em}
+  %   \item 通用性：RapidLayout可支持任意使用硬核IP的设计布局，未来可做进一步拓展；
+  %   \item GPU加速：进化算法基于种群的优化方法适用于平行计算，未来可用GPU加速。
+  % \end{enumerate}
+  % }
+
+  \begin{columns}[T, onlytextwidth]
+    \column{0.47\textwidth}
+    
+    {\fontsize{8}{10}\selectfont
+    {\bf 本毕业设计的主要贡献为：}
+    \begin{enumerate}
+      %\setlength\itemsep{1.5em}
+      \item 提出时间更短、性能更优的进化布局算法，解决大规模加速器设计布局难度大、时间成本高的问题；
+      \item 提出布局结果的迁移学习方法，构建RapidLayout实现框架。
+    \end{enumerate}
+
+    {\bf 研究展望：}
+    \begin{enumerate}
+      \item 通用性：支持任意硬核设计布局；
+      \item GPU加速：更大规模的并行加速。
+    \end{enumerate}
+
+    {\bf 相关科研成果：}
+    }
+
+    {\fontsize{6}{8}\selectfont
+    \begin{enumerate}
+      \item N. Zhang, X. Chen, N. Kapre.  {\it RapidLayout: Fast Hard Block Placement of FPGA-optimized Systolic Arrays using Evolutionary Algorithms}, International Conference on Field-Programmable and Application (FPL 2020, CCF-C, 15.2\% Acceptance Rate)
+      \item 张年崧，杨嵩毅，符顺，陈翔，基于计算机视觉成像的工业型材几何尺寸自动检测方法，No. 201811539019.8，2019年4月
+    \end{enumerate}
+
+    }
+
+    \column{0.5\textwidth}
+    % \begin{figure}
+    %   \includegraphics[width=1\textwidth,height=1.3\textwidth]{img/rapidlayout-placed}
+    %   \caption{使用RapidLayout完成布局布线的脉动阵列神经网络加速器}
+    % \end{figure}
+
+    \begin{figure}[h]
+      \centering
+      \subfloat[Vivado]{
+        \includegraphics[width=0.5\textwidth, height=0.8\textwidth]{img/vivado-placed.png}
+      }
+      \subfloat[RapidLayout] {
+        \includegraphics[width=0.5\textwidth, height=0.8\textwidth]{img/manual-placed.png}
+      }
+      \caption{
+       480核CNN加速器布局布线
+      }
+      \label{fig:overview}
+    \end{figure}
+
+
+  \end{columns}
 
 \end{frame}
 
 
-
-\section{相关科研成果}
-
-\begin{frame}{相关科研成果与参考文献}
-\begin{enumerate}
-	\item 发表论文
-	\begin{enumerate}
-		\item Niansong Zhang, Xiang Chen, Nachiket Kapre.
-		 \textit{RapidLayout: Fast Hard Block Placement of FPGA-optimized Systolic Arrays using Evolutionary Algorithms.}
-		 Accepted by 28th IEEE Annual International Symposium on Field-Programmable Custom Computing Machines (FCCM). 
-		 May 3 - May 6, 2020. (CCF-C)
-		%\item XXX
-		%\item XXX
-	\end{enumerate}
-	\item 发明专利
-	\begin{enumerate}
-		\item 张年崧，杨嵩毅，符顺，陈翔，基于计算机视觉成像的工业型材几何尺寸自动检测方法，No. 201811539019.8，2019年4月
-		%\item XXX
-		%\item XXX
-	\end{enumerate}
-	% \item 获奖
-	% \begin{enumerate}
-	% 	\item XXX
-	% 	\item XXX
-	% 	\item XXX
-	% \end{enumerate}
-	
-\end{enumerate}
-
-\end{frame}
-
-% \begin{frame}[allowframebreaks]{参考文献}
-%   \bibliography{ref}
-%   \bibliographystyle{abbrv}
-% \end{frame}
 
 \section{附录}
 
