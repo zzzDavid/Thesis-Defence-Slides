@@ -5,6 +5,7 @@
 
 \usepackage{animate}
 \usepackage{cite}
+\usepackage{graphicx}
 
 
 \usepackage{booktabs}
@@ -35,12 +36,12 @@
 \newcommand{\themename}{\textbf{\textsc{metropolis}}\xspace}
 
 \title{\textsc{RapidLayout}:}
-\subtitle{基于进化算法的脉动阵列快速硬核布局方法}
-%\date{\today} 
-\date{2020年5月10日}
-\author{指导老师：陈翔\ 副教授\ \ Nachiket G. Kapre 副教授 \\ 答辩：\hspace{0.55cm} 张年崧}
-\institute{中山大学 电子与信息工程学院 通信工程专业}
-\titlegraphic{\hfill\includegraphics[height=1.0cm]{img/logo.pdf}}
+\subtitle{Fast Hard Block Placement of FPGA-optimized Systolic Arrays using Evolutionary Algorithms}
+\date{\today} 
+% \date{2020年5月10日}
+\author{Niansong Zhang, Xiang Chen, Nachiket Kapre}
+\institute{Sun Yat-sen University, The University of Waterloo}
+%\titlegraphic{\hfill\includegraphics[height=1.0cm]{img/logo.pdf}}
 
 \begin{document}
 
@@ -53,12 +54,12 @@
 
 %-----------------------------------------------------------------------------------------
 
-\section{背景介绍}
+\section{Backgrounds}
 
-\begin{frame}{选题背景}
+\begin{frame}{Backgrounds}
 
 \begin{figure}
-  \subfloat[摩尔定律逐渐失效]{
+  \subfloat["Moore's Law" is ending]{
 		\includegraphics[width=0.30\textwidth, height=0.5\textwidth, valign=c]{img/moore.pdf}
 		\vphantom{
 			\includegraphics[width=0.30\textwidth, height=0.4\textwidth, valign=c]{img/alveo.pdf}
@@ -66,18 +67,18 @@
 		}
 	}
 	\hfill
-	\subfloat[ALVEO 数据中心加速卡]{
+	\subfloat[Xilinx ALVEO FPGA]{
 		\includegraphics[width=0.30\textwidth, height=0.4\textwidth, valign=c]{img/alveo.pdf}
 		\vphantom{
 			\includegraphics[width = 0.30\textwidth, height=0.5\textwidth, valign=c]{img/vivado-placed}
 		}
 	}
 	\hfill
-	\subfloat[EDA工具无法满足需求]{
+	\subfloat[Vivado fails routing]{
 		\includegraphics[width = 0.30\textwidth, height=0.5\textwidth, valign=c]{img/vivado-placed}
 	}
 	
-	\caption{“后摩尔时代”，FPGA应用广泛，但EDA工具无法适应大规模设计}
+	\caption{Current EDA tools are challenged by large high-density designs}
 \end{figure}
 
 \end{frame} 
@@ -129,53 +130,81 @@
 
 % \section{相关技术概述}
 
-\begin{frame}{FPGA实现过程与硬核IP介绍}
+\begin{frame}{FPGA Implementation and Placement Algorithms}
 
   \begin{columns}[T, onlytextwidth]
     \column{0.4\textwidth}
+
       \begin{figure}
-        \includegraphics[width=0.7\textwidth]{img/cad}
+        \includegraphics[width=0.8\textwidth]{img/cad.png}
       \end{figure}
-    
 
     \column{0.6\textwidth}
-    \begin{figure}
-      \includegraphics[width=1.1\textwidth]{img/hardblocks}
-    \end{figure}  
 
+      \begin{enumerate}
+        \item Simulated Annealing
+        \begin{itemize}
+          \item Near optimal results
+          \item Not scalable, hard to parallelize
+        \end{itemize}
+        \item Min-Cut
+        \begin{itemize}
+          \item Short runtime
+          \item Likely to stuck in local optima
+        \end{itemize}
+        \item Analytic Placement
+        \begin{itemize}
+          \item State-of-the-Art
+          \item Complex legalization
+        \end{itemize}
+        \item Evolutionary algorithms
+        \begin{itemize}
+          \item Inferior to SA
+          \item Friendly to parallelism
+        \end{itemize}
+      \end{enumerate}
 
   \end{columns}
 
-  \vspace{-0.6cm}
+\end{frame}
 
-    现有布局算法：  
-        \begin{enumerate}
-          \item 模拟退火：性能好但时间长，伸缩性差
-          % \begin{itemize}
-          %   \item 应用广泛，性能好
-          %   \item 伸缩性差，时间长
-          % \end{itemize}
-          \item Min-Cut法：速度快但易收敛至局部最优
-          % \begin{itemize}
-          %   \item 速度较快
-          %   \item 易收敛至局部最优
-          % \end{itemize}
-          \item 解析布局算法 ：SOTA但合法化复杂
-          % \begin{itemize}
-          %   \item State-of-the-Art
-          %   \item 合法化步骤复杂
-          % \end{itemize}
-          \item 进化算法：性能次于退火，适用并行化
-          % \begin{itemize}
-          %   \item 性能次于退火，但可提升
-          %   \item 设计灵活，适用于并行化
-          % \end{itemize}
-        \end{enumerate}    
+\begin{frame}{RapidWright and Hard Blocks}
+
+\begin{figure}
+  \includegraphics[width=1.0\textwidth]{img/hardblocks.png}
+  \vspace{-0.3cm}
+\end{figure}
+
+\begin{columns}[T, onlytextwidth]
+  \column{0.4\textwidth}
+    \begin{figure}
+      \includegraphics[width=\textwidth]{img/vivado_dcps.png}
+    \end{figure}
+
+
+  \column{0.55\textwidth}
+    {\fontsize{7}{10}
+    \emph{UltraScale+ Hard Blocks}
+    \begin{itemize}
+      \item {\bf DSP48E2:} 27$\times$18 Mult 48-bit Add
+      \item {\bf RAMB18:} 18KB TDP/SDP, supporting \alert{cascade}
+      \item {\bf URAM288:} 288KB, supporting \alert{cascade}
+    \end{itemize}
+
+    \emph{RapidWright FPGA framework}
+    \begin{itemize}
+      \item Read/Write DCP files 
+      \item Modular design methods
+      \item Logic/Physical netlist modification
+      \item Fast access to physical information
+    \end{itemize}
+    }
+  
+\end{columns}
 
 \end{frame}
 
-
-\begin{frame}{脉动阵列与进化算法}
+\begin{frame}{Systolic Arrays and Evolutionary Algorithms}
 
   \begin{columns}[T, onlytextwidth]
   
@@ -187,7 +216,7 @@
 
     \begin{figure}
       \includegraphics[width=0.8\textwidth]{img/array}
-      \caption{脉动阵列设计}
+      \caption{Our systolic array design}
     \end{figure}
   
     \column{0.4\textwidth}
@@ -199,7 +228,7 @@
     \vspace{-0.3cm}
     \begin{figure}
       \includegraphics[width=\textwidth]{img/NSGA-II.pdf}
-      \caption{CMA-ES 与 NSGA-II}
+      \caption{CMA-ES and NSGA-II}
     \end{figure}
 
   \end{columns}
@@ -207,9 +236,9 @@
 \end{frame}
 
 
-\section{基于进化算法的脉动阵列布局}
+\section{Evolutionary Hard Block Placement}
 
-\begin{frame}{问题建模与基因型设计}
+\begin{frame}{Problem Formulation}
   \vspace{-0.5cm}
   \begin{figure}
     \centering
@@ -295,7 +324,7 @@
       \begin{equation} \label{eq:cascade}
         \vspace{-0.5cm}
         \begin{aligned}[b]
-        & \textrm{如果\ } i \textrm{ 级联在\ } j \textrm{ 之后: }
+        & \textrm{if block\ } i \textrm{ is cascaded after\ } j \textrm{ : }
         x_i = x_j \\
         & y_i =
         \begin{cases}
@@ -313,32 +342,32 @@
 \end{frame} 
 
 
-\begin{frame}{RapidLayout工作流}
+\begin{frame}{RapidLayout Workflow}
 
   \begin{columns}[T, onlytextwidth]
     \column{0.4\textwidth}
 
     \vspace{0.2cm}
-    {\fontsize{8}{12}\selectfont
+    {\fontsize{7}{10}\selectfont
 
-    \circled{A} {\bf 逻辑网表复制：}\\
-    输入单个卷积单元逻辑网表，自动确定布局的\alert{最小可复制矩形区域}
-    和最大可容纳单元数，复制逻辑网表。\\
+    \circled{A} {\bf Netlist Replication：}\\
+    Takes one computation unit's logic netlist as input and finds the \alert{minimum replicating rectangle}
+    and replicate the logic netlist.\\
 
-    \circled{B} {\bf 基于进化算法硬核布局：}\\
-    使用NSGA-II或CMA-ES求解。\\
+    \circled{B} {\bf Evolutionary Placement：}\\
+    Solves the placement problem with NSGA-II or CMA-ES.\\
 
-    \circled{C} {\bf 物理网表布局和Site布线：}\\
-    更新物理网表，连接Site内信号。\\
+    \circled{C} {\bf Placement and Site Routing：}\\
+    Embedsthe placement result into DCP checkpoint.\\
 
-    \circled{D} {\bf 流水线：}\\
-    自动确定流水线级数，优化时钟。\\
+    \circled{D} {\bf Post-Placement Pipelining：}\\
+    Determines pipeline depth based on wirelength.\\
 
-    \circled{E} {\bf 超逻辑域布局与布线：}\\
-    在SLR内完成细节布局和布线。\\
+    \circled{E} {\bf SLR Placement and Routing：}\\
+    Calls Vivado to finish routing of 1 SLR. \\
 
-    \circled{F} {\bf 超逻辑域复制：}\\
-    重用布线结果，将实现后的设计复制到整个FPGA。\\
+    \circled{F} {\bf SLR Replication：}\\
+    Replicates the routed design to fill the FPGA.\\
 
     }
 
@@ -426,7 +455,7 @@
     % 	\caption{RapidLayout Design Flow with runtime details for the Xilinx VU11P
     %  FPGA along with tool usage information. Bulk of the intelligent exploration is done in RapidWright, and Vivado is only invoked at the end for final placement and routing.}
     
-    \caption{RapidLayout工作流}
+    \caption{RapidLayout Workflow}
     
     \label{fig:flow}
     \vspace{-0.1in}
@@ -437,7 +466,7 @@
 \end{frame}
 
 
-\begin{frame}{以Xilinx UltraScale+ VU11P为例的实现流程}
+\begin{frame}{Example: Xilinx UltraScale+ VU11P}
 
   \begin{columns}[T, onlytextwidth]
 
@@ -445,12 +474,12 @@
     \vspace{-0.5cm}
     \begin{figure}
       \includegraphics[width=\textwidth]{img/block1}
-      \caption{单卷积单元布局结果}
+      \caption{1 convlution unit}
     \end{figure}
     \vspace{-1cm}
     \begin{figure}
       \includegraphics[width=\textwidth]{img/block80}
-      \caption{Repeat Rect. 布局结果-80核}
+      \caption{Minimum Replicating Rect}
       \label{fig:block80}
     \end{figure}
 
@@ -496,7 +525,7 @@
          \draw [ultra thick,->,red] (slr0) to [out=180,in=180] (slr1);
        \end{tikzpicture}
       }
-      \caption{布局重用与SLR布线重用}
+      \caption{Placement \& SLR re-use}
       
     \end{figure}
 
@@ -504,9 +533,9 @@
   \end{columns}
   {\fontsize{8}{10}
   \begin{itemize}
-    \item 布局和布线结果重用，RapidLayout端到端实现仅需1小时，比Vivado快5--6倍；
-    \item 自动化方法免去了手工布局和试错；
-    \item 优质布局结果与自动流水线确保时钟频率达到URAM上限650 MHz。
+    \item RapidLayout accelerates the end-to-end workflow by \alert{5--6 $times$} against Vivado
+    \item Eliminates the long-period manual effort of trail-and-error
+    \item High quality placement results and pipelining achieves \alert{650~MHz+} clock frequency
   \end{itemize}
   }
     
@@ -515,52 +544,48 @@
 
 
 %------------------------Spherical Interpolation Method-------------------------------
-\section{实验结果与分析}
+\section{Experiment Results}
 
-\begin{frame}{实验设计与算法性能对比}
+\begin{frame}{QoR Comparison}
   
   \begin{columns}[T, onlytextwidth]
 
     \column{0.4\textwidth}
 
-    {\fontsize{7}{12}\selectfont
-      - 参数优化的模拟退火；\\
-      - 标准布局工具VPR；\\
-      - 最先进解析布局UTPlaceF；\\
-      - 单目标遗传算法（仅优化边界框）;\\
-      - 手工布局设计。\\
-    
-    % {\bf 实验结果对比} \\
-    %   - 相对SA快\alert{2.7--30.8}倍;\\
-    %   - 线长相对UTPlaceF, VPR优化\alert{1.8--2.4}倍；\\
-    %   - 边界框尺寸相对二者优化\alert{2.0--4.1}倍。
+    {\fontsize{7}{10}\selectfont
+      - Optimized Simulated Annealing\\
+      - Verilog-to-Place-and-Route (VPR)\\
+      - UTPlaceF \\
+      - Single-objective Genetic Algorithm\\
+      - Manual Placement\\
+  
     }
-
-    \begin{figure}
+    \vspace{0.3cm}
+    %\begin{figure*}
       \includegraphics[width=\textwidth]{img/frequency_depth}
-      \caption{时钟频率 vs 流水级数}
-    \end{figure}
+      %\caption{Freq. vs Depth}
+    %\end{figure*}
 
     \column{0.6\textwidth}
-    %\vspace{-0.2cm}
-    \begin{figure}
+    \vspace{-0.1cm}
+    %\begin{figure*}
       \includegraphics[width=1\textwidth]{img/objective-runtime.png}
-      \caption{线长、边界框尺寸、时钟频率对比} 
-      \label{fig:objective}
-    \end{figure}
+      %\caption{Wirelength, BBox Size, and Frequency} 
+      %\label{fig:objective}
+    %\end{figure*}
 
   \end{columns}
 
-  \vspace{-0.2cm}
+  % \vspace{-0.2cm}
 
 
   {\fontsize{8}{12}\selectfont
 
-  {\bf 实验结论:}\\
+  {\bf Conclusions:}\\
   \begin{enumerate}
-    \item 进化算法相对SA快\alert{2.7--30.8}倍，线长相对UTPlaceF, VPR优化\alert{1.8--2.4}倍；
-    \item 边界框尺寸相对二者优化\alert{2.0--4.1} 倍;
-    \item 进化算法1--2级流水可达750MHz超高频率，NSGA-II节省约17K(6\%)流水寄存器。
+    \item EA speeds up runtime over SA by \alert{2.7--30.8$\times$}
+    \item EA wins wirelength over UTPlaceF and VPR by \alert{1.8--2.4$\times$}, bbox size by \alert{2.0--4.1$\times$}
+    \item EA achieves 750~MHz high freq. with 1--2 level of pipelining，NSGA-II saves $\approx$17K(6\%) registers
   \end{enumerate}
   }
 
@@ -596,11 +621,11 @@
 \end{frame}
 
 
-\begin{frame}{迁移学习性能}
+\begin{frame}{Transfer Learning}
   %\vspace{-2cm}
 
   \begin{table}[h!]
-    \caption{迁移学习性能: VU3P, VU11P 作为初始设备}
+    \caption{Transfer Learning Performance: VU3P, VU11P as seed devices}
     \label{table:port}
     \centering
     \begin{adjustbox}{width=\columnwidth,center}
@@ -624,9 +649,9 @@
 
   {\fontsize{8}{12}\selectfont
   \begin{itemize}
-    \item 同设计在不同FPGA的硬核布局可进行迁移学习，仅需满足\alert{硬核列数相同}；
-    \item 迁移学习可加快优化进程\alert{7--12}倍。
-    \item 迁移学习获得结果的时钟频率相对无迁移学习变化 \alert{-2\% -- +7\%}
+    \item Devices with the same \alert{column number} are applicable for transfer learning
+    \item Transfer Learning accelerates optimization by \alert{7--12$\times$}
+    \item Frequency variation of transfer learning against from scratch: \alert{-2\% -- +7\%}
   \end{itemize}
   }
   
@@ -634,9 +659,9 @@
 
 
 
-\section{总结与展望}
+\section{Conclusions}
 
-\begin{frame}{总结与展望}
+\begin{frame}{Conclusions}
 
   % {\fontsize{8}{10}\selectfont
   % {\bf 全文的主要工作及贡献点如下：}
@@ -659,31 +684,26 @@
 
   \begin{columns}[T, onlytextwidth]
     \column{0.47\textwidth}
+
+    \vspace{0.5cm}
     
     {\fontsize{8}{10}\selectfont
-    {\bf 本毕业设计的主要贡献为：}
+    {\bf Key Contributions：}
     \begin{enumerate}
       %\setlength\itemsep{1.5em}
-      \item 提出时间更短、性能更优的进化布局算法，解决大规模加速器设计布局难度大、时间成本高的问题；
-      \item 提出布局结果的迁移学习方法，构建RapidLayout实现框架。
+      \item We solve hard-block-intense placement problem with evolutionary techniques
+      \item We build an end-to-end RapidLayout placement and routing toolflow
+      \item We develop the transfer learning process for hard block placement
     \end{enumerate}
 
-    {\bf 研究展望：}
+    {\bf Future Works：}
     \begin{enumerate}
-      \item 通用性：支持任意硬核设计布局；
-      \item GPU加速：更大规模的并行加速。
+      %\setlength\itemsep{1.5em}
+      \item Generalization: supporting any designs with hard blocks
+      \item GPU parallelization for evolutionary algorithms
     \end{enumerate}
-
-    {\bf 相关科研成果：}
     }
 
-    {\fontsize{6}{8}\selectfont
-    \begin{enumerate}
-      \item N. Zhang, X. Chen, N. Kapre.  {\it RapidLayout: Fast Hard Block Placement of FPGA-optimized Systolic Arrays using Evolutionary Algorithms}, International Conference on Field-Programmable and Application (FPL 2020, CCF-C, 15.2\% Acceptance Rate)
-      \item 张年崧，杨嵩毅，符顺，陈翔，基于计算机视觉成像的工业型材几何尺寸自动检测方法，No. 201811539019.8，2019年4月
-    \end{enumerate}
-
-    }
 
     \column{0.5\textwidth}
     % \begin{figure}
@@ -700,7 +720,7 @@
         \includegraphics[width=0.5\textwidth, height=0.8\textwidth]{img/manual-placed.png}
       }
       \caption{
-       480核CNN加速器布局布线
+       A Successful and Faster Placement Process by RapidLayout
       }
       \label{fig:overview}
     \end{figure}
@@ -712,13 +732,13 @@
 
 
 
-\section{附录}
+% \section{附录}
 
-\begin{frame}{异构FPGA硬核列分布资源}
-  \begin{figure}
-    \includegraphics[width=\textwidth]{img/architecture.png}
-  \end{figure}
-\end{frame}
+% \begin{frame}{异构FPGA硬核列分布资源}
+%   \begin{figure}
+%     \includegraphics[width=\textwidth]{img/architecture.png}
+%   \end{figure}
+% \end{frame}
 
 
 \end{document}
